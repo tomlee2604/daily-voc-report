@@ -172,6 +172,41 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   <div id="csmDrillContent" style="padding:20px"></div>
 </div>
 
+
+<div id="pdfOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998" onclick="closePdfModal()"></div>
+<div id="pdfModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;z-index:9999;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <h3 style="font-size:18px;font-weight:700;margin:0">📄 PDF 출력 항목 선택</h3>
+    <button onclick="closePdfModal()" style="border:none;background:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
+  </div>
+  <div id="pdfCenterLabel" style="font-size:14px;color:var(--accent2);font-weight:600;margin-bottom:16px"></div>
+  
+  <div style="margin-bottom:12px">
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">
+      <input type="checkbox" id="pdf-kpi" checked style="width:18px;height:18px;accent-color:var(--accent)">
+      <div><div style="font-size:14px;font-weight:600">📊 KPI 요약</div><div style="font-size:11px;color:var(--text3)">평균점수, 총건수, 만족률, 불만률</div></div>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">
+      <input type="checkbox" id="pdf-ranking" checked style="width:18px;height:18px;accent-color:var(--accent)">
+      <div><div style="font-size:14px;font-weight:600">🏅 CSM 성과 랭킹</div><div style="font-size:11px;color:var(--text3)">매우만족률순 정렬, 5단계 건수+비율</div></div>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">
+      <input type="checkbox" id="pdf-swot" checked style="width:18px;height:18px;accent-color:var(--accent)">
+      <div><div style="font-size:14px;font-weight:600">📋 CSM별 SWOT 분석</div><div style="font-size:11px;color:var(--text3)">강점/약점/기회/위협 4분면 분석</div></div>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">
+      <input type="checkbox" id="pdf-voc" style="width:18px;height:18px;accent-color:var(--accent)">
+      <div><div style="font-size:14px;font-weight:600">💬 VOC 코멘트 목록</div><div style="font-size:11px;color:var(--text3)">칭찬/보통/불만 대표 코멘트</div></div>
+    </label>
+  </div>
+  
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <button onclick="selectAllPdf()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:Noto Sans KR,sans-serif">전체 선택</button>
+    <button onclick="generatePdf()" id="pdfGenBtn" style="flex:2;padding:10px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif">PDF 생성</button>
+  </div>
+  <div id="pdfGenMsg" style="margin-top:10px;text-align:center;font-size:13px;display:none"></div>
+</div>
+
 <div id="pwChangeOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998" onclick="closePwChange()"></div>
 <div id="pwChangeModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;z-index:9999;box-shadow:0 20px 60px rgba(0,0,0,.5)">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -2626,80 +2661,245 @@ function deleteNotice(rowIdx){
 
 
 
-// PDF EXPORT
+// PDF EXPORT - Modal based
+var pdfCurrentCode = '';
+var pdfCurrentCenter = '';
+
 function exportCenterPDF(code, centerName){
-  var tabEl = document.getElementById('tab-' + code);
-  if(!tabEl){ alert('탭을 찾을 수 없습니다'); return; }
+  pdfCurrentCode = code;
+  pdfCurrentCenter = centerName;
+  document.getElementById('pdfCenterLabel').textContent = centerName;
+  document.getElementById('pdfOverlay').style.display = 'block';
+  document.getElementById('pdfModal').style.display = 'block';
+  document.getElementById('pdfGenMsg').style.display = 'none';
+}
+
+function closePdfModal(){
+  document.getElementById('pdfOverlay').style.display = 'none';
+  document.getElementById('pdfModal').style.display = 'none';
+}
+
+function selectAllPdf(){
+  var checks = document.querySelectorAll('#pdfModal input[type=checkbox]');
+  var allChecked = Array.from(checks).every(function(c){return c.checked});
+  checks.forEach(function(c){ c.checked = !allChecked; });
+}
+
+function generatePdf(){
+  var wantKpi = document.getElementById('pdf-kpi').checked;
+  var wantRanking = document.getElementById('pdf-ranking').checked;
+  var wantSwot = document.getElementById('pdf-swot').checked;
+  var wantVoc = document.getElementById('pdf-voc').checked;
   
-  // Show loading
-  var btn = event.target;
-  var origText = btn.innerHTML;
-  btn.innerHTML = '⏳ 생성 중...';
-  btn.disabled = true;
+  if(!wantKpi && !wantRanking && !wantSwot && !wantVoc){
+    alert('최소 1개 항목을 선택해주세요');
+    return;
+  }
   
-  // Hide no-print elements
-  var noPrintEls = tabEl.querySelectorAll('.no-print');
-  noPrintEls.forEach(function(el){ el.style.display = 'none'; });
+  var msgEl = document.getElementById('pdfGenMsg');
+  msgEl.style.display = 'block';
+  msgEl.style.color = 'var(--accent2)';
+  msgEl.textContent = '⏳ PDF 생성 중...';
+  document.getElementById('pdfGenBtn').disabled = true;
   
-  // Temporarily set white background for PDF
-  tabEl.style.background = '#0B0F1A';
-  tabEl.style.padding = '20px';
+  var code = pdfCurrentCode;
+  var centerName = pdfCurrentCenter;
   
-  html2canvas(tabEl, {
+  // Build PDF content HTML
+  var content = '<div style="background:#0B0F1A;color:#E8ECF4;padding:30px;font-family:sans-serif;width:800px">';
+  content += '<h1 style="font-size:24px;margin-bottom:4px;color:#fff">물류 VOC Report — ' + centerName + '</h1>';
+  content += '<p style="font-size:12px;color:#8B99B4;margin-bottom:24px">' + new Date().toLocaleDateString('ko-KR') + ' 출력</p>';
+  
+  // Get center data from csmDetailData
+  var centerCsms = [];
+  for(var key in csmDetailData){
+    var d = csmDetailData[key];
+    if(code === 'overview' || d.code === code){
+      centerCsms.push(d);
+    }
+  }
+  centerCsms.sort(function(a,b){
+    var aRate = a.total > 0 ? a.sat['매우만족']/a.total : 0;
+    var bRate = b.total > 0 ? b.sat['매우만족']/b.total : 0;
+    return bRate - aRate;
+  });
+  
+  // KPI
+  if(wantKpi){
+    var totalVoc = 0, totalScore = 0, sat5 = 0, sat4 = 0, sat3 = 0, sat2 = 0, sat1 = 0;
+    centerCsms.forEach(function(d){
+      totalVoc += d.total;
+      totalScore += d.score * d.total;
+      sat5 += d.sat['매우만족']; sat4 += d.sat['만족']; sat3 += d.sat['보통']; sat2 += d.sat['불만족']; sat1 += d.sat['매우불만족'];
+    });
+    var avgScore = totalVoc > 0 ? Math.round(totalScore/totalVoc*10)/10 : 0;
+    var praiseRate = totalVoc > 0 ? Math.round((sat5+sat4)/totalVoc*1000)/10 : 0;
+    var compRate = totalVoc > 0 ? Math.round((sat2+sat1)/totalVoc*1000)/10 : 0;
+    
+    content += '<div style="margin-bottom:24px;padding:16px;background:#1A2236;border:1px solid #2A3654;border-radius:12px">';
+    content += '<h2 style="font-size:16px;color:#60A5FA;margin-bottom:12px">📊 KPI 요약</h2>';
+    content += '<table style="width:100%;border-collapse:collapse"><tr>';
+    content += '<td style="padding:10px;text-align:center;border:1px solid #2A3654"><div style="font-size:11px;color:#8B99B4">평균점수</div><div style="font-size:22px;font-weight:800;color:#fff">'+avgScore+'</div></td>';
+    content += '<td style="padding:10px;text-align:center;border:1px solid #2A3654"><div style="font-size:11px;color:#8B99B4">총 VOC</div><div style="font-size:22px;font-weight:800;color:#fff">'+totalVoc+'건</div></td>';
+    content += '<td style="padding:10px;text-align:center;border:1px solid #2A3654"><div style="font-size:11px;color:#8B99B4">칭찬률</div><div style="font-size:22px;font-weight:800;color:#10B981">'+praiseRate+'%</div></td>';
+    content += '<td style="padding:10px;text-align:center;border:1px solid #2A3654"><div style="font-size:11px;color:#8B99B4">불만률</div><div style="font-size:22px;font-weight:800;color:#EF4444">'+compRate+'%</div></td>';
+    content += '</tr></table>';
+    content += '<table style="width:100%;border-collapse:collapse;margin-top:8px"><tr>';
+    content += '<td style="padding:6px;text-align:center;font-size:12px;color:#10B981;border:1px solid #2A3654">매우만족 '+sat5+'</td>';
+    content += '<td style="padding:6px;text-align:center;font-size:12px;color:#60A5FA;border:1px solid #2A3654">만족 '+sat4+'</td>';
+    content += '<td style="padding:6px;text-align:center;font-size:12px;color:#F59E0B;border:1px solid #2A3654">보통 '+sat3+'</td>';
+    content += '<td style="padding:6px;text-align:center;font-size:12px;color:#F97316;border:1px solid #2A3654">불만족 '+sat2+'</td>';
+    content += '<td style="padding:6px;text-align:center;font-size:12px;color:#EF4444;border:1px solid #2A3654">매우불만족 '+sat1+'</td>';
+    content += '</tr></table></div>';
+  }
+  
+  // Ranking
+  if(wantRanking){
+    content += '<div style="margin-bottom:24px;padding:16px;background:#1A2236;border:1px solid #2A3654;border-radius:12px">';
+    content += '<h2 style="font-size:16px;color:#60A5FA;margin-bottom:12px">🏅 CSM 성과 랭킹</h2>';
+    content += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    content += '<tr style="background:#222D44"><th style="padding:8px;border:1px solid #2A3654;color:#8B99B4">순위</th><th style="padding:8px;border:1px solid #2A3654;color:#8B99B4">CSM</th><th style="padding:8px;border:1px solid #2A3654;color:#8B99B4">건수</th><th style="padding:8px;border:1px solid #2A3654;color:#10B981">매우만족</th><th style="padding:8px;border:1px solid #2A3654;color:#60A5FA">만족</th><th style="padding:8px;border:1px solid #2A3654;color:#F59E0B">보통</th><th style="padding:8px;border:1px solid #2A3654;color:#F97316">불만족</th><th style="padding:8px;border:1px solid #2A3654;color:#EF4444">매우불만</th><th style="padding:8px;border:1px solid #2A3654;color:#F59E0B">점수</th></tr>';
+    centerCsms.forEach(function(d, i){
+      var rate5 = d.total>0?Math.round(d.sat['매우만족']/d.total*1000)/10:0;
+      content += '<tr><td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#fff">'+(i+1)+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;color:#fff;font-weight:600">'+d.name+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#fff">'+d.total+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#10B981">'+d.sat['매우만족']+' ('+rate5+'%)</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#60A5FA">'+d.sat['만족']+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#F59E0B">'+d.sat['보통']+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#F97316">'+d.sat['불만족']+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#EF4444">'+d.sat['매우불만족']+'</td>';
+      content += '<td style="padding:6px 8px;border:1px solid #2A3654;text-align:center;color:#F59E0B;font-weight:700">'+d.score+'</td></tr>';
+    });
+    content += '</table></div>';
+  }
+  
+  // SWOT per CSM
+  if(wantSwot){
+    content += '<div style="margin-bottom:24px">';
+    content += '<h2 style="font-size:16px;color:#60A5FA;margin-bottom:12px">📋 CSM별 SWOT 분석</h2>';
+    centerCsms.forEach(function(d){
+      var satRate = d.total>0?Math.round(d.sat['매우만족']/d.total*1000)/10:0;
+      var compCount = d.sat['불만족']+d.sat['매우불만족'];
+      var normCount = d.sat['보통'];
+      var validScores = d.monthly.filter(function(v){return v!==null});
+      var trending = validScores.length>=2 ? (validScores[validScores.length-1]>validScores[validScores.length-2]?'상승':'하락') : '-';
+      
+      var s=[], w=[], o=[], t=[];
+      if(satRate>=85) s.push('매우만족률 '+satRate+'% 우수');
+      if(d.score>=95) s.push('평균 '+d.score+'점 우수');
+      if(compCount===0) s.push('불만 0건');
+      if(trending==='상승') s.push('상승 추세');
+      
+      if(satRate<80) w.push('매우만족률 '+satRate+'% 개선필요');
+      if(d.score<93) w.push('평균 '+d.score+'점 하위권');
+      if(compCount>0) w.push('불만 '+compCount+'건');
+      if(normCount>0) w.push('보통 '+normCount+'건');
+      if(trending==='하락') w.push('하락 추세');
+      
+      if(trending==='상승') o.push('상승 모멘텀 활용');
+      if(satRate>=80&&compCount<=1) o.push('우수사례 벤치마크 가능');
+      if(compCount>0) o.push('불만 원인 분석 후 개선 가능');
+      
+      if(trending==='하락'&&d.score<93) t.push('하락 지속 시 센터 영향');
+      if(compCount>=3) t.push('반복 불만 리스크');
+      
+      content += '<div style="padding:14px;background:#1A2236;border:1px solid #2A3654;border-radius:10px;margin-bottom:8px">';
+      content += '<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:8px">'+d.name+' <span style="font-size:12px;color:#8B99B4">('+d.score+'점 / '+d.total+'건 / 매우만족 '+satRate+'%)</span></div>';
+      content += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+      content += '<div style="padding:8px;background:rgba(16,185,129,.08);border-radius:6px;font-size:11px"><b style="color:#10B981">S 강점</b><br>'+( s.length>0?s.join(', '):'—')+'</div>';
+      content += '<div style="padding:8px;background:rgba(249,115,22,.08);border-radius:6px;font-size:11px"><b style="color:#F97316">W 약점</b><br>'+(w.length>0?w.join(', '):'—')+'</div>';
+      content += '<div style="padding:8px;background:rgba(59,130,246,.08);border-radius:6px;font-size:11px"><b style="color:#3B82F6">O 기회</b><br>'+(o.length>0?o.join(', '):'—')+'</div>';
+      content += '<div style="padding:8px;background:rgba(239,68,68,.08);border-radius:6px;font-size:11px"><b style="color:#EF4444">T 위협</b><br>'+(t.length>0?t.join(', '):'—')+'</div>';
+      content += '</div></div>';
+    });
+    content += '</div>';
+  }
+  
+  // VOC comments
+  if(wantVoc){
+    content += '<div style="margin-bottom:24px">';
+    content += '<h2 style="font-size:16px;color:#60A5FA;margin-bottom:12px">💬 VOC 코멘트</h2>';
+    centerCsms.forEach(function(d){
+      var key = d.code + '_' + d.name;
+      var vocData = csmVocFull[key];
+      if(!vocData) return;
+      var hasComments = false;
+      ['매우만족','만족','보통','불만족','매우불만족'].forEach(function(sat){
+        var list = vocData[sat] || [];
+        var withContent = list.filter(function(v){return v.content && v.content.length > 3});
+        if(withContent.length > 0) hasComments = true;
+      });
+      if(!hasComments) return;
+      
+      content += '<div style="padding:12px;background:#1A2236;border:1px solid #2A3654;border-radius:10px;margin-bottom:8px">';
+      content += '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px">'+d.name+' ('+d.center+')</div>';
+      
+      var satColors = {'매우만족':'#10B981','만족':'#60A5FA','보통':'#F59E0B','불만족':'#F97316','매우불만족':'#EF4444'};
+      ['매우만족','보통','불만족','매우불만족'].forEach(function(sat){
+        var list = vocData[sat] || [];
+        var withContent = list.filter(function(v){return v.content && v.content.length > 3}).slice(0,3);
+        if(withContent.length > 0){
+          content += '<div style="font-size:11px;color:'+satColors[sat]+';font-weight:600;margin:6px 0 3px">'+sat+'</div>';
+          withContent.forEach(function(v){
+            content += '<div style="font-size:11px;color:#8B99B4;padding:2px 0;line-height:1.5">· '+v.content+'</div>';
+          });
+        }
+      });
+      content += '</div>';
+    });
+    content += '</div>';
+  }
+  
+  content += '</div>';
+  
+  // Render to hidden div, then capture
+  var tempDiv = document.createElement('div');
+  tempDiv.style.position = 'fixed';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.top = '0';
+  tempDiv.innerHTML = content;
+  document.body.appendChild(tempDiv);
+  
+  html2canvas(tempDiv.firstChild, {
     scale: 2,
     useCORS: true,
     backgroundColor: '#0B0F1A',
     logging: false,
-    windowWidth: 1200
+    windowWidth: 860
   }).then(function(canvas){
+    document.body.removeChild(tempDiv);
+    
     var imgData = canvas.toDataURL('image/jpeg', 0.95);
     var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+    var pdfW = pdf.internal.pageSize.getWidth();
+    var pdfH = pdf.internal.pageSize.getHeight();
+    var imgW = pdfW - 16;
+    var imgH = (canvas.height * imgW) / canvas.width;
     
-    var pdfWidth = pdf.internal.pageSize.getWidth();
-    var pdfHeight = pdf.internal.pageSize.getHeight();
-    var imgWidth = pdfWidth - 20; // 10mm margin each side
-    var imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    // Multi-page if content is tall
-    var heightLeft = imgHeight;
-    var position = 10; // top margin
-    
-    // First page
-    pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-    heightLeft -= (pdfHeight - 20);
-    
+    var heightLeft = imgH;
+    var pos = 8;
+    pdf.addImage(imgData, 'JPEG', 8, pos, imgW, imgH);
+    heightLeft -= (pdfH - 16);
     while(heightLeft > 0){
-      position = position - pdfHeight + 10;
+      pos = pos - pdfH + 8;
       pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - 20);
-    }
-    
-    // Add header text
-    pdf.setFontSize(8);
-    pdf.setTextColor(150);
-    var totalPages = pdf.internal.getNumberOfPages();
-    for(var i = 1; i <= totalPages; i++){
-      pdf.setPage(i);
-      pdf.text('물류 VOC Report - ' + centerName + ' | ' + new Date().toLocaleDateString('ko-KR'), pdfWidth - 10, pdfHeight - 5, {align: 'right'});
+      pdf.addImage(imgData, 'JPEG', 8, pos, imgW, imgH);
+      heightLeft -= (pdfH - 16);
     }
     
     var fileName = 'VOC_' + centerName.replace(/ /g,'_') + '_' + new Date().toISOString().slice(0,10) + '.pdf';
     pdf.save(fileName);
     
-    // Restore
-    noPrintEls.forEach(function(el){ el.style.display = ''; });
-    tabEl.style.background = '';
-    tabEl.style.padding = '';
-    btn.innerHTML = origText;
-    btn.disabled = false;
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = '✅ PDF 다운로드 완료!';
+    document.getElementById('pdfGenBtn').disabled = false;
+    setTimeout(closePdfModal, 1500);
   }).catch(function(err){
-    alert('PDF 생성 실패: ' + err);
-    noPrintEls.forEach(function(el){ el.style.display = ''; });
-    tabEl.style.background = '';
-    tabEl.style.padding = '';
-    btn.innerHTML = origText;
-    btn.disabled = false;
+    document.body.removeChild(tempDiv);
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = '❌ 생성 실패: ' + err;
+    document.getElementById('pdfGenBtn').disabled = false;
   });
 }
 
@@ -2768,6 +2968,10 @@ function exportCSMPDF(){
 // ESC key: 1st = collapse VOC lists, 2nd = close panel, 3rd = close other panels
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){
+    // Priority 0: Close pdf modal
+    var pdfModal = document.getElementById('pdfModal');
+    if(pdfModal && pdfModal.style.display !== 'none'){ closePdfModal(); return; }
+    
     // Priority 0: Close notice form
     var noticeForm = document.getElementById('noticeForm');
     if(noticeForm && noticeForm.style.display !== 'none'){ noticeForm.style.display='none'; return; }
