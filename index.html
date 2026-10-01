@@ -1117,7 +1117,7 @@ var RT_CSM_ALIAS = {};
 var RT_COLORS = ['#2563EB','#059669','#D97706','#7C3AED','#DC2626','#0891B2','#DB2777','#EA580C','#4D7C0F','#475569'];
 var RT_ROLE_CENTERS = {'경기 RDC':['경기물류'],'인천 TC':['경기물류'],'전주 CDC':['전주물류'],'청원 TC':['전주물류'],'장유 RDC':['장유물류'],'대구 TC':['장유물류']};
 var RT_VER_ORDER = ['최신','8月','4月'];
-var rtState = {center:null, ver:'최신', sel:null, road:false, period:null};
+var rtState = {center:null, ver:'최신', sel:null, road:true, period:null};
 var rtMap = null, rtLayer = null, rtRoadCache = {};
 
 function rtEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -1305,6 +1305,7 @@ function rtEngineBadge(){
   else if(rtNaverState==='loading') t = '네이버 지도 불러오는 중…';
   else if(rtNaverState==='fail') t = '⚠ '+rtNaverMsg+' (대체 지도로 표시)';
   else t = '대체 지도 · 네이버 지도 Client ID 미설정';
+  if(rtEngine && rtState.road && typeof rtRoadPending==='function' && rtRoadPending()) t += ' · 도로 경로 불러오는 중…';
   el.textContent = t;
   el.style.color = rtNaverState==='fail' ? 'var(--orange)' : 'var(--text3)';
 }
@@ -1418,16 +1419,26 @@ function rtDrawMap(rows){
   rows.slice().sort(function(a,b){ return (a.i===sel) - (b.i===sel); }).forEach(function(r){
     var isSel = sel===r.i, faded = sel!==null && !isSel;
     var pts = r.v.stops.map(rtLL).filter(Boolean);
-    var rc = rtRoadCache[rtRoadKey(r.v)];
-    if(isSel && rtState.road && rc && rc.coords) pts = rc.coords;
-    rtAddLine(pts, {color:r.color, weight: isSel?6:(faded?3:4), opacity: faded?0.18:0.85, z: isSel?50:10,
+    var rc = rtState.road ? rtRoadCache[rtRoadKey(r.v)] : null;
+    if(rtState.road && !rc) rtRoadEnsure(r.v, isSel);
+    var onRoad = !!(rc && rc.coords);
+    if(onRoad) pts = rc.coords;
+    rtAddLine(pts, {color:r.color, weight: isSel?6:(faded?3:4), opacity: faded?0.18:(onRoad?0.85:0.55), z: isSel?50:10,
       tip: rtEsc((r.v.car&&r.v.car!=='CSM'?r.v.car+' ':'')+r.v.name)+' · '+rtKm(r.km)+'km',
       onClick: function(){ rtSelect(r.i); }});
-    if(isSel && !rtState.road){
+    if(isSel){
       r.v.legs.forEach(function(d,j){
-        var a=rtLL(r.v.stops[j]), b=rtLL(r.v.stops[j+1]); if(!a||!b||d==null) return;
-        if(a[0]===b[0]&&a[1]===b[1]) return;
-        rtAddHtml([(a[0]+b[0])/2,(a[1]+b[1])/2], '<div class="rt-leg-lbl">'+rtKm(d)+'km</div>', {z:300});
+        if(d==null) return;
+        var pos;
+        if(onRoad && rc.idx && rc.idx.length===r.v.stops.length){
+          var a0=rc.idx[j], b0=rc.idx[j+1]; if(b0<=a0) return;
+          pos = rc.coords[Math.round((a0+b0)/2)];
+        } else {
+          var a=rtLL(r.v.stops[j]), b=rtLL(r.v.stops[j+1]); if(!a||!b) return;
+          if(a[0]===b[0]&&a[1]===b[1]) return;
+          pos = [(a[0]+b[0])/2,(a[1]+b[1])/2];
+        }
+        rtAddHtml(pos, '<div class="rt-leg-lbl">'+rtKm(d)+'km</div>', {z:300});
       });
     }
   });
@@ -1467,9 +1478,9 @@ function rtFit(){
 }
 
 function rtVehicles(){ var c=RT_ROUTES[rtState.center]||{}; return c[rtState.ver]||[]; }
-function rtSetCenter(c){ rtState.center=c; rtState.sel=null; rtState.road=false; var vers=Object.keys(RT_ROUTES[c]||{}); if(vers.indexOf(rtState.ver)<0) rtState.ver = RT_VER_ORDER.filter(function(v){return vers.indexOf(v)>-1;})[0]||vers[0]; rtRender(); rtFit(); }
-function rtSetVer(v){ rtState.ver=v; rtState.sel=null; rtState.road=false; rtRender(); rtFit(); }
-function rtSelect(i){ rtState.sel = (i===null || rtState.sel===i) ? null : i; rtState.road=false; rtRender(); rtFit(); }
+function rtSetCenter(c){ rtState.center=c; rtState.sel=null; var vers=Object.keys(RT_ROUTES[c]||{}); if(vers.indexOf(rtState.ver)<0) rtState.ver = RT_VER_ORDER.filter(function(v){return vers.indexOf(v)>-1;})[0]||vers[0]; rtRender(); rtFit(); }
+function rtSetVer(v){ rtState.ver=v; rtState.sel=null; rtRender(); rtFit(); }
+function rtSelect(i){ rtState.sel = (i===null || rtState.sel===i) ? null : i; rtRender(); rtFit(); }
 
 /* ---- 렌더 ---- */
 function rtRender(){
@@ -1495,10 +1506,10 @@ function rtRender(){
   rtRenderTable(rows);
   rtDrawMap(rows);
   var rb = document.getElementById('rtRoadBtn');
-  rb.disabled = rtState.sel===null; rb.classList.toggle('on', !!rtState.road);
+  rb.disabled = false; rb.classList.toggle('on', !!rtState.road); rb.textContent = rtState.road ? '🛣️ 도로 경로 ON' : '📏 직선 보기';
   rtEngineBadge();
   document.getElementById('rtFootnote').innerHTML =
-    '· 운행거리 = 코스표 구간거리 합계(엑셀), 지도의 선은 정류지를 순서대로 이은 직선입니다. 차량을 고른 뒤 <b>실제 도로 경로</b>를 누르면 도로 기준 경로와 거리를 불러옵니다.<br>'+
+    '· 운행거리 = 코스표 구간거리 합계(엑셀). 지도의 동선은 정류지 순서대로 실제 도로를 따라 그린 모양이며 거리 계산에는 쓰지 않습니다 (도로 경로를 못 불러온 경우 옅은 직선으로 표시).<br>'+
     '· 도급비 = VOC 리포트 CSM별 배송비 합계(배달비+장거리비+추가정산), 거리정산비 = 장거리비(DFT). CSM 이름이 리포트 명단과 일치할 때만 표시됩니다.<br>'+
     '· 점선 표시 위치는 주소 미확인으로 운행거리 기준 추정 좌표입니다. 매장 위치는 전자랜드 매장 주소 기준'+''+'입니다.';
 }
@@ -1566,12 +1577,6 @@ function rtRenderDetail(rows){
     if(j<v.legs.length) h += '<div class="rt-leg"><span>'+(v.legs[j]!=null? rtKm(v.legs[j])+'km':'-')+'</span><span class="arrow">→</span></div>';
   });
   var roadInfo = '';
-  var ck = rtRoadKey(v);
-  if(rtState.road && rtRoadCache[ck]){
-    var rc = rtRoadCache[ck];
-    roadInfo = rc.err ? '<span class="rt-muted" style="color:var(--orange)">도로 경로 조회 실패: '+rtEsc(rc.err)+'</span>'
-      : '<span class="rt-muted">도로 경로 '+rtKm(rc.km)+'km · 약 '+Math.round(rc.min/60)+'시간 '+Math.round(rc.min%60)+'분 (코스표 '+rtKm(r.km)+'km)</span>';
-  } else if(rtState.road){ roadInfo='<span class="rt-muted">도로 경로 불러오는 중…</span>'; }
   el.innerHTML = '<h4><span class="rt-swatch" style="background:'+r.color+'"></span>'+rtEsc(v.car||'')+' '+rtEsc(v.name)+
     (v.csm?' <span class="rt-tag csm">CSM</span>':'')+' <span class="rt-tag ton">'+rtEsc(v.ton||'')+'</span>'+
     ' <span style="font-family:Outfit;margin-left:4px">'+rtKm(r.km)+'km</span> '+roadInfo+'</h4>'+
@@ -1602,27 +1607,105 @@ function rtRenderTable(rows){
   document.getElementById('rtTable').innerHTML = h;
 }
 
-/* ---- 실제 도로 경로 (OSRM 공개 서버) ---- */
+/* ---- 도로 경로 표시 (OSRM 공개 경로 서버) — 거리 계산 없이 코스 모양만 도로를 따라 그림 ---- */
+var RT_ROAD_LS = 'rtRoadGeoV1';
+var rtRoadQueue = [], rtRoadBusy = 0, rtRoadTimer = null;
 function rtRoadKey(v){ return v.stops.join('>'); }
-function rtToggleRoad(){
-  if(rtState.sel===null) return;
-  rtState.road = !rtState.road;
-  var v = rtVehicles()[rtState.sel];
-  var ck = rtRoadKey(v);
-  if(rtState.road && !rtRoadCache[ck]){
-    var pts = v.stops.map(function(s){ var l=RT_LOCS[s]; return l[1]+','+l[0]; });
-    fetch('https://router.project-osrm.org/route/v1/driving/'+pts.join(';')+'?overview=full&geometries=geojson')
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if(!j.routes || !j.routes.length) throw new Error(j.message||'경로 없음');
-        var rt=j.routes[0];
-        rtRoadCache[ck] = {coords: rt.geometry.coordinates.map(function(c){ return [c[1],c[0]]; }), km: rt.distance/1000, min: rt.duration/60};
-        rtRender();
-      })
-      .catch(function(e){ rtRoadCache[ck] = {err: e.message||String(e)}; rtRender(); });
-  }
-  rtRender();
+function rtPolyEnc(pts){
+  var out='', pl=0, pn=0;
+  function e(v){ v = v<0 ? ~(v<<1) : (v<<1); var s=''; while(v>=0x20){ s+=String.fromCharCode((0x20|(v&0x1f))+63); v>>=5; } return s+String.fromCharCode(v+63); }
+  pts.forEach(function(p){ var a=Math.round(p[0]*1e5), b=Math.round(p[1]*1e5); out+=e(a-pl)+e(b-pn); pl=a; pn=b; });
+  return out;
 }
+function rtPolyDec(str){
+  var i=0, la=0, lo=0, out=[];
+  while(i<str.length){
+    var b, s=0, r=0; do{ b=str.charCodeAt(i++)-63; r|=(b&0x1f)<<s; s+=5; }while(b>=0x20); la += (r&1)?~(r>>1):(r>>1);
+    s=0; r=0;         do{ b=str.charCodeAt(i++)-63; r|=(b&0x1f)<<s; s+=5; }while(b>=0x20); lo += (r&1)?~(r>>1):(r>>1);
+    out.push([la/1e5, lo/1e5]);
+  }
+  return out;
+}
+function rtSimplify(pts, eps){
+  if(pts.length<3) return pts.slice();
+  var keep = new Array(pts.length); keep[0]=keep[pts.length-1]=true;
+  var stack=[[0,pts.length-1]];
+  while(stack.length){
+    var se=stack.pop(), a=pts[se[0]], b=pts[se[1]], dmax=0, idx=-1;
+    var dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy;
+    for(var i=se[0]+1;i<se[1];i++){
+      var p=pts[i], t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0; t=Math.max(0,Math.min(1,t));
+      var x=a[0]+t*dx-p[0], y=a[1]+t*dy-p[1], d=Math.sqrt(x*x+y*y);
+      if(d>dmax){ dmax=d; idx=i; }
+    }
+    if(dmax>eps){ keep[idx]=true; stack.push([se[0],idx],[idx,se[1]]); }
+  }
+  return pts.filter(function(_,i){ return keep[i]; });
+}
+// 저장된 도로 경로 불러오기 (브라우저 캐시)
+(function(){
+  try{
+    var c = JSON.parse(localStorage.getItem(RT_ROAD_LS)||'{}');
+    Object.keys(c).forEach(function(k){ rtRoadCache[k] = {coords: rtPolyDec(c[k].p), idx: c[k].i}; });
+  }catch(e){}
+})();
+function rtRoadSave(){
+  try{
+    var o={}; Object.keys(rtRoadCache).forEach(function(k){ var r=rtRoadCache[k]; if(r && r.coords) o[k]={p:rtPolyEnc(r.coords), i:r.idx}; });
+    localStorage.setItem(RT_ROAD_LS, JSON.stringify(o));
+  }catch(e){}
+}
+function rtRoadEnsure(v, front){
+  var k = rtRoadKey(v);
+  if(rtRoadCache[k] || rtRoadQueue.some(function(q){ return q.k===k; })) return;
+  var item = {k:k, stops:v.stops.slice()};
+  if(front) rtRoadQueue.unshift(item); else rtRoadQueue.push(item);
+  rtRoadPump();
+}
+function rtRoadPump(){
+  while(rtRoadBusy<2 && rtRoadQueue.length){
+    (function(item){
+      rtRoadBusy++;
+      rtRoadCache[item.k] = {pending:true};
+      var pts = item.stops.map(function(s){ var l=RT_LOCS[s]; return l[1]+','+l[0]; });
+      fetch('https://router.project-osrm.org/route/v1/driving/'+pts.join(';')+'?overview=full&geometries=geojson')
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if(j.code!=='Ok' || !j.routes || !j.routes.length) throw new Error(j.message||j.code||'경로 없음');
+          var rt = j.routes[0];
+          var full = rt.geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+          // 구간(leg) 경계를 거리 누적으로 찾아 정류지별로 나눈 뒤 각각 단순화
+          function hv(a,b){ var R=6371000, t=Math.PI/180, dl=(b[0]-a[0])*t, dn=(b[1]-a[1])*t;
+            var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)*Math.sin(dn/2); return 2*R*Math.asin(Math.sqrt(x)); }
+          var cum=[0]; for(var i=1;i<full.length;i++) cum.push(cum[i-1]+hv(full[i-1],full[i]));
+          var scale = rt.distance ? cum[cum.length-1]/rt.distance : 1;
+          var bounds=[0], acc=0, p=0;
+          rt.legs.forEach(function(lg, li){
+            acc += lg.distance*scale;
+            if(li===rt.legs.length-1){ bounds.push(full.length-1); return; }
+            while(p<full.length-1 && cum[p]<acc) p++;
+            bounds.push(Math.max(p, bounds[bounds.length-1]));
+          });
+          var coords=[], idx=[];
+          for(var s=0;s<bounds.length-1;s++){
+            var seg = rtSimplify(full.slice(bounds[s], bounds[s+1]+1), 0.0003);
+            idx.push(coords.length ? coords.length-1 : 0);
+            coords = coords.length ? coords.concat(seg.slice(1)) : seg;
+          }
+          idx.push(coords.length-1);
+          rtRoadCache[item.k] = {coords: coords.map(function(c){ return [+c[0].toFixed(5), +c[1].toFixed(5)]; }), idx: idx};
+          rtRoadSave();
+        })
+        .catch(function(e){ rtRoadCache[item.k] = {err: e.message||String(e)}; })
+        .then(function(){
+          rtRoadBusy--; rtRoadPump();
+          clearTimeout(rtRoadTimer); rtRoadTimer = setTimeout(function(){ if(document.getElementById('tab-route').classList.contains('active')) rtRender(); }, 250);
+        });
+    })(rtRoadQueue.shift());
+  }
+}
+function rtRoadPending(){ return rtRoadBusy + rtRoadQueue.length; }
+function rtToggleRoad(){ rtState.road = !rtState.road; rtRender(); }
 </script>
 <script>
 Chart.defaults.color='#1A1A2E';Chart.defaults.borderColor='rgba(42,54,84,.4)';Chart.defaults.font.family="'Outfit','Noto Sans KR',sans-serif";Chart.defaults.font.size=11;Chart.defaults.plugins.legend.labels.usePointStyle=true;
