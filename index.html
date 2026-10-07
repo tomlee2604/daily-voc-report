@@ -3728,8 +3728,10 @@ function generatePdf(){
   var wantRanking = document.getElementById('pdf-ranking').checked;
   var wantSwot = document.getElementById('pdf-swot').checked;
   var wantVoc = document.getElementById('pdf-voc').checked;
+  var costEl = document.getElementById('pdf-cost');
+  var wantCost = !!(costEl && costEl.checked);
   
-  if(!wantKpi && !wantRanking && !wantSwot && !wantVoc){
+  if(!wantKpi && !wantRanking && !wantSwot && !wantVoc && !wantCost){
     alert('최소 1개 항목을 선택해주세요');
     return;
   }
@@ -3899,6 +3901,51 @@ function generatePdf(){
     content += '</div>';
   }
   
+  // CSM별 평균 배송비 (배달비/장거리비/추가정산 도급비)
+  if(wantCost){
+    var won = function(v){ return (v==null||isNaN(v)) ? '-' : Math.round(v).toLocaleString('ko-KR')+'원'; };
+    var pick = function(src, c, n){ var a=(src&&src[c])||[]; for(var q=0;q<a.length;q++){ if(a[q].name===n) return a[q]; } return null; };
+    var rowsC = centerCsms.map(function(d){
+      var tot = pick(typeof csmCostTotalData!=='undefined'?csmCostTotalData:null, d.code, d.name);
+      var day = pick(typeof csmCostData!=='undefined'?csmCostData:null, d.code, d.name);
+      var mon = pick(typeof csmMonthlyAvgCost!=='undefined'?csmMonthlyAvgCost:null, d.code, d.name);
+      return {d:d, tot:tot, day:day, mon:mon};
+    }).filter(function(r){ return r.tot || r.day; });
+    rowsC.sort(function(a,b){ return ((b.day&&b.day.total)||0) - ((a.day&&a.day.total)||0); });
+    var monthsSet = {};
+    try{ Object.keys(csmMonthlyCostTotalData||{}).forEach(function(c){ Object.keys(csmMonthlyCostTotalData[c]||{}).forEach(function(m){ if(/^\d+$/.test(m)) monthsSet[m]=1; }); }); }catch(e){}
+    var mList = Object.keys(monthsSet).map(Number).sort(function(a,b){return a-b;});
+    var period = mList.length ? (mList[0]+'~'+mList[mList.length-1]+'월') : '';
+    var showCenter = (code === 'overview');
+    content += '<div style="margin-bottom:20px;padding:14px;border:1px solid #ddd;border-radius:8px;page-break-inside:auto">';
+    content += '<h2 style="font-size:15px;color:#1B2A4A;margin-bottom:4px">💰 CSM별 평균 배송비</h2>';
+    content += '<div style="font-size:10px;color:#888;margin-bottom:8px">'+(period?period+' 누적 · ':'')+'도급비 = 배달비 + 장거리비(DFT) + 추가정산(FT) · 일평균 순 정렬</div>';
+    if(!rowsC.length){
+      content += '<div style="font-size:12px;color:#888;padding:8px">선택한 CSM의 배송비 데이터가 없습니다.</div>';
+    } else {
+      content += '<table style="font-size:11px">';
+      content += '<tr><th>순위</th>'+(showCenter?'<th>센터</th>':'')+'<th>CSM</th><th>근무일수</th><th>누적 도급비</th><th style="color:#A7F3D0">배달비</th><th style="color:#BFDBFE">장거리비(DFT)</th><th style="color:#FDE68A">추가정산(FT)</th><th>일평균 도급비</th><th>월평균 도급비</th></tr>';
+      var sum = {total:0, delivery:0, dft:0, extra:0, days:0};
+      rowsC.forEach(function(r, k){
+        var T = r.tot || {}, D = r.day || {}, M = r.mon || {};
+        ['total','delivery','dft','extra','days'].forEach(function(f){ sum[f] += (T[f]||0); });
+        content += '<tr><td>'+(k+1)+'</td>'+(showCenter?'<td>'+r.d.center+'</td>':'')+'<td style="font-weight:600;text-align:left">'+r.d.name+'</td>';
+        content += '<td>'+(T.days!=null?T.days:(D.days!=null?D.days:'-'))+'일</td>';
+        content += '<td style="font-weight:700;text-align:right">'+won(T.total)+'</td>';
+        content += '<td style="text-align:right;color:#059669">'+won(T.delivery)+'</td>';
+        content += '<td style="text-align:right;color:#2563EB">'+won(T.dft)+'</td>';
+        content += '<td style="text-align:right;color:#D97706">'+won(T.extra)+'</td>';
+        content += '<td style="text-align:right;font-weight:700">'+won(D.total)+'</td>';
+        content += '<td style="text-align:right">'+won(M.total)+'</td></tr>';
+      });
+      content += '<tr style="background:#f3f4f6;font-weight:700"><td colspan="'+(showCenter?3:2)+'">합계</td><td>'+sum.days.toLocaleString('ko-KR')+'일</td>';
+      content += '<td style="text-align:right">'+won(sum.total)+'</td><td style="text-align:right">'+won(sum.delivery)+'</td><td style="text-align:right">'+won(sum.dft)+'</td><td style="text-align:right">'+won(sum.extra)+'</td>';
+      content += '<td style="text-align:right">'+won(sum.days?sum.total/sum.days:null)+'</td><td></td></tr>';
+      content += '</table>';
+    }
+    content += '</div>';
+  }
+  
   content += '</div>';
   
   closePdfModal();
@@ -3916,7 +3963,7 @@ function generatePdf(){
   doc.open();
   doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VOC Report - ' + centerName + '</title>');
   doc.write('<style>');
-  doc.write('body{margin:0;padding:20px;font-family:sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}');
+  doc.write('body{margin:0;padding:20px;background:#fff;font-family:sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}');
   doc.write('table{border-collapse:collapse;width:100%}');
   doc.write('th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;text-align:center}');
   doc.write('th{background:#2A3654;color:#fff}');
