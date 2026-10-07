@@ -3953,22 +3953,30 @@ function generatePdf(){
       var h = '<div class="cs-card">';
       h += '<div class="cs-ttl"><b>'+title+'</b><span>도급비 '+man(sum.total)+'원 · '+rowsC.length+'명 · 일평균 '+num(sum.days?sum.total/sum.days:null)+'원</span></div>';
       if(!rowsC.length){ return h + '<div class="cs-empty">'+title+' 배송비 데이터 없음</div></div>'; }
-      h += '<table class="cs-tbl"><thead><tr><th>#</th>'+(showCenter?'<th>센터</th>':'')+'<th>CSM</th><th>일수</th><th>도급비</th><th>배달비</th><th>장거리<br>(DFT)</th><th>추가정산<br>(FT)</th><th>일평균</th></tr></thead><tbody>';
+      h += '<div class="cs-tw"><table class="cs-tbl"><thead><tr><th>#</th>'+(showCenter?'<th>센터</th>':'')+'<th>CSM</th><th>일수</th><th>도급비</th><th>배달비</th><th>장거리<br>(DFT)</th><th>추가정산<br>(FT)</th><th>일평균</th></tr></thead><tbody>';
       rowsC.forEach(function(r,k){
         var T=r.tot||{}, D=r.day||{};
         h += '<tr><td>'+(k+1)+'</td>'+(showCenter?'<td>'+r.d.center+'</td>':'')+'<td class="nm">'+r.d.name+'</td><td>'+(T.days!=null?T.days:(D.days!=null?D.days:'-'))+'</td>'+
              '<td class="r b">'+num(T.total)+'</td><td class="r g">'+num(T.delivery)+'</td><td class="r bl">'+num(T.dft)+'</td><td class="r o">'+num(T.extra)+'</td><td class="r b">'+num(D.total)+'</td></tr>';
       });
-      h += '<tr class="sum"><td colspan="'+(showCenter?3:2)+'">합계</td><td>'+num(sum.days)+'</td><td class="r">'+num(sum.total)+'</td><td class="r">'+num(sum.delivery)+'</td><td class="r">'+num(sum.dft)+'</td><td class="r">'+num(sum.extra)+'</td><td class="r">'+num(sum.days?sum.total/sum.days:null)+'</td></tr></tbody></table>';
+      h += '<tr class="sum"><td colspan="'+(showCenter?3:2)+'">합계</td><td>'+num(sum.days)+'</td><td class="r">'+num(sum.total)+'</td><td class="r">'+num(sum.delivery)+'</td><td class="r">'+num(sum.dft)+'</td><td class="r">'+num(sum.extra)+'</td><td class="r">'+num(sum.days?sum.total/sum.days:null)+'</td></tr></tbody></table></div>';
       return h + '</div>';
     });
     var today = new Date().toLocaleDateString('ko-KR');
     // CSM이 12명 이하면 한 장에 4개(2×2), 그보다 많으면 2개씩
     var perPage = maxRows <= 12 ? 4 : 2;
+    // 가로 한 장(본문 약 187mm)을 꽉 채우도록 표 높이·글자 크기 자동 조정
+    var lines = maxRows + 3;                               // 머리 2줄 + 합계 + 제목
     for(var pi=0; pi<cards.length; pi+=perPage){
-      content += '<div class="cost-sheet'+(perPage===4?' four':'')+'">';
+      var nCards = Math.min(perPage, cards.length - pi);
+      var sheetRows = nCards > 2 ? 2 : 1;                  // 이 장에 실제로 들어가는 카드 줄 수
+      var tableH = sheetRows===2 ? 260 : 580;              // 카드 안 표가 쓸 수 있는 높이(px, 보수적으로)
+      var rowH = tableH / lines;
+      var fs = Math.max(8.5, Math.min(12, Math.round((rowH - 4) / 1.25 * 10) / 10));
+      var fill = rowH >= 14;
+      content += '<div class="cost-sheet'+(sheetRows===2?' four':'')+(fill?' fill':'')+'" style="--fs:'+fs+'px">';
       content += '<div class="cs-head"><div><b>물류 VOC Report — '+centerName+'</b> · CSM별 평균 배송비</div><div class="cs-sub">도급비 = 배달비 + 장거리비(DFT) + 추가정산(FT) · 단위 원 · 일평균 순 정렬 · '+today+' 출력</div></div>';
-      for(var ri=0; ri<perPage && pi+ri<cards.length; ri+=2){
+      for(var ri=0; ri<nCards; ri+=2){
         content += '<div class="cs-grid">'+cards[pi+ri]+(cards[pi+ri+1]||'<div></div>')+'</div>';
       }
       content += '</div>';
@@ -4002,14 +4010,18 @@ function generatePdf(){
   doc.write(costOnly ? '.cost-sheet:first-of-type{break-before:auto;page-break-before:auto}@page{size:A4 landscape;margin:8mm}' : '');
   doc.write('.cs-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #3B82F6;padding-bottom:5px;margin-bottom:8px;font-size:14px;color:#1B2A4A}');
   doc.write('.cs-sub{font-size:9px;color:#888}');
-  doc.write('.cs-grid{display:flex;gap:10px;align-items:flex-start}.cs-grid>div{flex:1 1 0;min-width:0}');
+  doc.write('.cs-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start}.cs-grid>div{min-width:0}');
   doc.write('.cs-card{border:1px solid #ddd;border-radius:6px;padding:8px}');
   doc.write('.cs-ttl{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;font-size:13px;color:#1B2A4A}.cs-ttl span{font-size:9.5px;color:#555}');
   doc.write('.cs-empty{font-size:11px;color:#888;padding:10px}');
-  doc.write('.cs-tbl th,.cs-tbl td{font-size:10.5px;padding:4px 5px;white-space:nowrap}.cs-tbl th{font-size:9.5px;line-height:1.2}');
+  doc.write('.cs-tbl th,.cs-tbl td{font-size:var(--fs,10.5px);padding:2px 6px;line-height:1.25;white-space:nowrap}.cs-tbl th{font-size:calc(var(--fs,10.5px) - 1px);line-height:1.2}');
   doc.write('.cs-tbl td.nm{text-align:left;font-weight:600}.cs-tbl td.r{text-align:right;font-variant-numeric:tabular-nums}.cs-tbl td.b{font-weight:700}.cs-tbl td.g{color:#059669}.cs-tbl td.bl{color:#2563EB}.cs-tbl td.o{color:#D97706}');
   doc.write('.cs-tbl tr.sum td{background:#f3f4f6;font-weight:700}');
-  doc.write('.cost-sheet.four .cs-grid+.cs-grid{margin-top:8px}.cost-sheet.four .cs-card{padding:6px 8px}.cost-sheet.four .cs-ttl{margin-bottom:4px;font-size:12px}.cost-sheet.four .cs-tbl th,.cost-sheet.four .cs-tbl td{font-size:9.5px;padding:2.5px 5px}.cost-sheet.four .cs-tbl th{font-size:9px}');
+  doc.write('.cost-sheet.four .cs-grid+.cs-grid{margin-top:8px}.cost-sheet.four .cs-card{padding:6px 8px}.cost-sheet.four .cs-ttl{margin-bottom:4px}');
+  doc.write('.cs-ttl b{font-size:calc(var(--fs,10.5px) + 3px)}.cs-ttl span{font-size:calc(var(--fs,10.5px) - 0.5px)}');
+  doc.write('.cost-sheet.fill{height:186mm;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}');
+  doc.write('.cost-sheet.fill .cs-grid{flex:1 1 0;min-height:0;align-items:stretch}.cost-sheet.fill .cs-grid>div{display:flex;flex-direction:column;min-height:0}');
+  doc.write('.cost-sheet.fill .cs-card{flex:1 1 auto;display:flex;flex-direction:column;box-sizing:border-box}.cost-sheet.fill .cs-tw{flex:1 1 0;min-height:0}.cost-sheet.fill .cs-tbl{height:100%}');
   doc.write('</style></head><body>');
   doc.write(content);
   doc.write('</body></html>');
