@@ -201,6 +201,9 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .rt-steps{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:6px}
 .rt-step{flex:none;min-width:118px;border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--surface)}
 .rt-step.depot{background:var(--surface2)}
+.rt-step{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.rt-step:hover{border-color:var(--accent)}
+.rt-step.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,.2)}
 .rt-step .n{font-size:13px;font-weight:700;white-space:nowrap}
 .rt-step .t{font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums}
 .rt-leg{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;font-family:'Outfit';font-size:12px;font-weight:700;color:var(--text2)}
@@ -1120,7 +1123,7 @@ var RT_CSM_COST = {"1":{"곽동욱":{"days":31,"delivery":8673279,"dft":1488375,
 var RT_COLORS = ['#2563EB','#059669','#D97706','#7C3AED','#DC2626','#0891B2','#DB2777','#EA580C','#4D7C0F','#475569'];
 var RT_ROLE_CENTERS = {'경기 RDC':['경기물류'],'인천 TC':['경기물류'],'전주 CDC':['전주물류'],'청원 TC':['전주물류'],'장유 RDC':['장유물류'],'대구 TC':['장유물류']};
 var RT_VER_ORDER = ['최신','8月','4月'];
-var rtState = {center:null, ver:'최신', sel:null, road:true, period:null};
+var rtState = {center:null, ver:'최신', sel:null, road:true, period:null, focus:null};
 var rtMap = null, rtLayer = null, rtRoadCache = {};
 
 function rtEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -1514,6 +1517,37 @@ function rtDrawMap(rows){
       {z:800, tip:'<b>'+rtEsc(s)+'</b>'+(l[3]?' <span style="color:#EA580C">(위치 추정)</span>':'')+'<br><span style="color:#7A7A9A">'+rtEsc(l[4])+'</span>'});
   });
 }
+// 정류지 카드를 누르면 지도를 그 지점으로 확대하고 이름 말풍선 표시 (같은 카드를 다시 누르면 코스 전체로 복귀)
+function rtFocusStop(j){
+  if(!rtEngine || rtState.sel===null) return;
+  var v = rtVehicles()[rtState.sel]; if(!v) return;
+  if(rtState.focus===j){ rtState.focus=null; rtRenderDetail(rtCurRows()); rtFit(); return; }
+  var s = v.stops[j], l = RT_LOCS[s]; if(!l) return;
+  rtState.focus = j;
+  rtRenderDetail(rtCurRows());
+  var card = document.querySelector('.rt-map-card');
+  if(card){ var r = card.getBoundingClientRect(); if(r.top < 0 || r.bottom > window.innerHeight) card.scrollIntoView({behavior:'smooth', block:'center'}); }
+  var isDep = l[2]==='depot', ord = v.stops.slice(0,j+1).filter(function(x){ return (RT_LOCS[x]||[])[2]!=='depot'; }).length;
+  var tip = '<b>'+(isDep?'🏭 ':ord+'. ')+rtEsc(s)+'</b>'+(l[3]?' <span style="color:#EA580C">(위치 추정)</span>':'')+'<br><span style="color:#7A7A9A">'+rtEsc(l[4])+'</span>';
+  var sc = v.sched[j]||{}, tt=[]; if(sc.arr) tt.push('도착 '+sc.arr); if(sc.dep) tt.push('출발 '+sc.dep); if(tt.length) tip += '<br>'+tt.join(' · ');
+  if(rtEngine==='naver'){
+    var pos = new naver.maps.LatLng(l[0], l[1]);
+    try{ rtNMap.morph(pos, 15); }catch(e){ rtNMap.setCenter(pos); rtNMap.setZoom(15); }
+    setTimeout(function(){ try{ rtNInfo.setContent(rtTipHtml(tip)); rtNInfo.open(rtNMap, pos); }catch(e){} }, 450);
+  } else if(rtEngine==='leaflet'){
+    rtMap.flyTo([l[0], l[1]], 15, {duration:0.6});
+    setTimeout(function(){ L.popup({offset:[0,-8]}).setLatLng([l[0], l[1]]).setContent(tip).openOn(rtMap); }, 650);
+  }
+}
+function rtCurRows(){
+  var period = rtState.period || 'all';
+  return rtVehicles().map(function(v,i){
+    var km = rtLegSum(v), match = v.csm ? rtFindCsm(v.name) : null;
+    var own = v.csm && rtHasOwnCost(v.name);
+    var cost = v.csm ? (rtOwnCost(v.name, period) || (match ? rtCost(match, period) : null)) : null;
+    return {v:v, i:i, km:km, match:match, has: !!(own || match), cost: cost, color: RT_COLORS[i%RT_COLORS.length]};
+  });
+}
 function rtFit(){
   if(!rtEngine) return;
   var vs = rtVehicles(), pts=[];
@@ -1527,9 +1561,9 @@ function rtFit(){
 }
 
 function rtVehicles(){ var c=RT_ROUTES[rtState.center]||{}; return c[rtState.ver]||[]; }
-function rtSetCenter(c){ rtState.center=c; rtState.sel=null; var vers=Object.keys(RT_ROUTES[c]||{}); if(vers.indexOf(rtState.ver)<0) rtState.ver = RT_VER_ORDER.filter(function(v){return vers.indexOf(v)>-1;})[0]||vers[0]; rtRender(); rtFit(); }
-function rtSetVer(v){ rtState.ver=v; rtState.sel=null; rtRender(); rtFit(); }
-function rtSelect(i){ rtState.sel = (i===null || rtState.sel===i) ? null : i; rtRender(); rtFit(); }
+function rtSetCenter(c){ rtState.center=c; rtState.sel=null; rtState.focus=null; var vers=Object.keys(RT_ROUTES[c]||{}); if(vers.indexOf(rtState.ver)<0) rtState.ver = RT_VER_ORDER.filter(function(v){return vers.indexOf(v)>-1;})[0]||vers[0]; rtRender(); rtFit(); }
+function rtSetVer(v){ rtState.ver=v; rtState.sel=null; rtState.focus=null; rtRender(); rtFit(); }
+function rtSelect(i){ rtState.focus = null; rtState.sel = (i===null || rtState.sel===i) ? null : i; rtRender(); rtFit(); }
 
 /* ---- 렌더 ---- */
 function rtRender(){
@@ -1624,7 +1658,7 @@ function rtRenderDetail(rows){
     if(sc.arr) t.push('도착 '+sc.arr);
     if(sc.dep) t.push('출발 '+sc.dep);
     if(sc.dwell && j>0 && j<v.stops.length-1) t.push('체류 '+sc.dwell.replace(/^0(\d):/,'$1:'));
-    h += '<div class="rt-step'+(isDepot?' depot':'')+'"><div class="n">'+(isDepot?'🏭 ':'')+rtEsc(s)+'</div><div class="t">'+t.join('<br>')+'</div></div>';
+    h += '<div class="rt-step'+(isDepot?' depot':'')+(rtState.focus===j?' on':'')+'" onclick="rtFocusStop('+j+')" title="지도에서 보기"><div class="n">'+(isDepot?'🏭 ':'')+rtEsc(s)+'</div><div class="t">'+t.join('<br>')+'</div></div>';
     if(j<v.legs.length) h += '<div class="rt-leg"><span>'+(v.legs[j]!=null? rtKm(v.legs[j])+'km':'-')+'</span><span class="arrow">→</span></div>';
   });
   var roadInfo = '';
