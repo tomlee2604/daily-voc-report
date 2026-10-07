@@ -3931,6 +3931,7 @@ function generatePdf(){
     if(!periods.length) periods = ['all'];
     periods.sort(function(a,b){ return a==='all' ? -1 : (b==='all' ? 1 : a-b); });
     var showCenter = (code === 'overview');
+    var maxRows = 0;
     var cards = periods.map(function(per){
       var isAll = per==='all';
       var rowsC = centerCsms.map(function(d){
@@ -3946,6 +3947,7 @@ function generatePdf(){
       }).filter(function(r){ return (r.tot && r.tot.total) || (r.day && r.day.total); });
       rowsC.sort(function(a,b){ return ((b.day&&b.day.total)||0) - ((a.day&&a.day.total)||0); });
       var title = isAll ? (mList.length ? mList[0]+'~'+mList[mList.length-1]+'월 누적' : '누적') : per+'월';
+      if(rowsC.length > maxRows) maxRows = rowsC.length;
       var sum = {total:0, delivery:0, dft:0, extra:0, days:0};
       rowsC.forEach(function(r){ var T=r.tot||{}; ['total','delivery','dft','extra','days'].forEach(function(f){ sum[f]+=(T[f]||0); }); });
       var h = '<div class="cs-card">';
@@ -3961,10 +3963,15 @@ function generatePdf(){
       return h + '</div>';
     });
     var today = new Date().toLocaleDateString('ko-KR');
-    for(var pi=0; pi<cards.length; pi+=2){
-      content += '<div class="cost-sheet">';
+    // CSM이 12명 이하면 한 장에 4개(2×2), 그보다 많으면 2개씩
+    var perPage = maxRows <= 12 ? 4 : 2;
+    for(var pi=0; pi<cards.length; pi+=perPage){
+      content += '<div class="cost-sheet'+(perPage===4?' four':'')+'">';
       content += '<div class="cs-head"><div><b>물류 VOC Report — '+centerName+'</b> · CSM별 평균 배송비</div><div class="cs-sub">도급비 = 배달비 + 장거리비(DFT) + 추가정산(FT) · 단위 원 · 일평균 순 정렬 · '+today+' 출력</div></div>';
-      content += '<div class="cs-grid">'+cards[pi]+(cards[pi+1]||'<div></div>')+'</div></div>';
+      for(var ri=0; ri<perPage && pi+ri<cards.length; ri+=2){
+        content += '<div class="cs-grid">'+cards[pi+ri]+(cards[pi+ri+1]||'<div></div>')+'</div>';
+      }
+      content += '</div>';
     }
   }
   
@@ -4002,6 +4009,7 @@ function generatePdf(){
   doc.write('.cs-tbl th,.cs-tbl td{font-size:10.5px;padding:4px 5px;white-space:nowrap}.cs-tbl th{font-size:9.5px;line-height:1.2}');
   doc.write('.cs-tbl td.nm{text-align:left;font-weight:600}.cs-tbl td.r{text-align:right;font-variant-numeric:tabular-nums}.cs-tbl td.b{font-weight:700}.cs-tbl td.g{color:#059669}.cs-tbl td.bl{color:#2563EB}.cs-tbl td.o{color:#D97706}');
   doc.write('.cs-tbl tr.sum td{background:#f3f4f6;font-weight:700}');
+  doc.write('.cost-sheet.four .cs-grid+.cs-grid{margin-top:8px}.cost-sheet.four .cs-card{padding:6px 8px}.cost-sheet.four .cs-ttl{margin-bottom:4px;font-size:12px}.cost-sheet.four .cs-tbl th,.cost-sheet.four .cs-tbl td{font-size:9.5px;padding:2.5px 5px}.cost-sheet.four .cs-tbl th{font-size:9px}');
   doc.write('</style></head><body>');
   doc.write(content);
   doc.write('</body></html>');
