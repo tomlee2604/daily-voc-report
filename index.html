@@ -236,7 +236,8 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .trk-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .trk-bar .t{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
 .trk-bar .btns{display:flex;gap:6px;flex-wrap:wrap}
-.trk-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:620px;border:1px solid var(--border);border-radius:12px;background:#fff}
+#trkApp:not(.full){width:calc(100vw - 40px);margin-left:calc(50% - 50vw + 20px)}
+.trk-frame{display:block;width:100%;height:calc(100vh - 64px);min-height:560px;border:1px solid var(--border);border-radius:12px;background:#fff}
 #trkApp.full{position:fixed;inset:0;z-index:9000;background:var(--bg,#fff);padding:8px 10px;box-sizing:border-box}
 #trkApp.full .trk-frame{height:calc(100vh - 62px);min-height:0}
 .trk-tools{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:12.5px;color:var(--text2)}
@@ -6874,6 +6875,7 @@ function trkShow(html){
   document.getElementById('trkLock').style.display = 'none';
   document.getElementById('trkApp').style.display = '';
   trk.open = true; trkSetMsg('');
+  setTimeout(function(){ try{ document.getElementById('trkApp').scrollIntoView({block:'start', behavior:'smooth'}); }catch(e){} }, 60);
 }
 function trkReloadFrame(){ if(trk.html) setTimeout(function(){ trkShow(trk.html); }, 0); }
 function trkLockNow(){
