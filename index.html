@@ -6894,7 +6894,14 @@ function trkFull(){
   document.getElementById('trkFullBtn').textContent = on ? '✕ 전체 화면 닫기' : '⛶ 전체 화면';
   document.body.style.overflow = on ? 'hidden' : '';
 }
-document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var a=document.getElementById('trkApp'); if(a && a.classList.contains('full')) trkFull(); } });
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  var a = document.getElementById('trkApp'), t = document.getElementById('tab-track');
+  if(!a || !t || !t.classList.contains('active') || a.style.display === 'none') return;
+  /* 포커스가 리포트 쪽에 있어도 Esc를 당일배송 화면에 전달 (루트 선택 해제) */
+  var fr = document.getElementById('trkFrame');
+  try { if(fr && fr.contentDocument) fr.contentDocument.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); } catch(x){}
+});
 function trkToggleTools(){ var t=document.getElementById('trkTools'); t.style.display = t.style.display==='none' ? '' : 'none'; }
 function trkOnShow(){
   if(trk.open || trk.busy) return;
