@@ -2198,7 +2198,8 @@ function computeSwot(code){
   var comp=(k.satCnt['불만족']||0)+(k.satCnt['매우불만족']||0);
   var compRate=Math.round(comp/k.total*1000)/10;
   var norm=k.satCnt['보통']||0;
-  var mvals=k.monthly.filter(function(v){return v!=null;});
+  var mlist=[]; k.monthly.forEach(function(v,i){ if(v!=null) mlist.push({m:i+1, v:v}); });
+  var mvals=mlist.map(function(x){return x.v;});
   var last=mvals[mvals.length-1], prev=mvals[mvals.length-2];
   var trend=mvals.length>=2?(last>prev?'상승':(last<prev?'하락':'유지')):'유지';
   var trendIcon=trend==='상승'?'📈':trend==='하락'?'📉':'➡️';
@@ -2227,7 +2228,9 @@ function computeSwot(code){
   if(comp>=5)T.push('반복 불만('+comp+'건) 리스크');
   if(norm>0)T.push('보통 '+norm+'건이 불만으로 전환될 리스크');
   if(!T.length)T.push('단기 위협 요인 낮음');
-  return {score:k.score,total:k.total,trend:trend,trendIcon:trendIcon,months:mvals,S:S,W:W,O:O,T:T};
+  var mlab=mlist.map(function(x,i){ var lastOne=(i===mlist.length-1); var dv=(lastOne&&i>0)?Math.round((x.v-mlist[i-1].v)*10)/10:null;
+    return '<span style="white-space:nowrap'+(lastOne?';font-weight:700;color:var(--text)':'')+'">'+x.m+'월 '+x.v+(dv!=null&&dv!==0?' <small style="color:'+(dv>0?'var(--green)':'var(--red)')+'">('+(dv>0?'▲':'▼')+Math.abs(dv)+')</small>':'')+'</span>'; }).join(' → ');
+  return {score:k.score,total:k.total,trend:trend,trendIcon:trendIcon,months:mvals,mlab:mlab,S:S,W:W,O:O,T:T};
 }
 function showSwot(center){
   // Check access - master can see all, others only their own
@@ -2245,14 +2248,14 @@ function showSwot(center){
     {key:'O',label:'🚀 Opportunity (기회)',emoji:'',color:B,bg:'rgba(59,130,246,.08)'},
     {key:'T',label:'🔥 Threat (위협)',emoji:'',color:R,bg:'rgba(239,68,68,.08)'}
   ];
-  let html=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+  let html=`<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
     <div><span style="font-size:28px;font-family:Outfit;font-weight:800;color:var(--gold)">${d.score}</span><span style="font-size:14px;color:var(--text3)">점</span></div>
     <div style="width:1px;height:36px;background:var(--border)"></div>
     <div><span style="font-size:14px;font-weight:600">${d.total}건</span><span style="font-size:14px;color:var(--text3)"> VOC</span></div>
     <div style="width:1px;height:36px;background:var(--border)"></div>
     <div><span style="font-size:16px">${d.trendIcon}</span> <span style="font-size:13px;color:${d.trend==='상승'?G:R}">${d.trend} 추세</span></div>
     <div style="width:1px;height:36px;background:var(--border)"></div>
-    <div style="font-size:14px;color:var(--text3)">월별: <span style="color:var(--text)">${d.months.join(' → ')}</span></div>
+    <div style="font-size:13px;color:var(--text3);line-height:1.7;flex:1;min-width:260px">월별: <span style="color:var(--text2)">${d.mlab || d.months.join(' → ')}</span></div>
   </div>`;
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   quadrants.forEach(q=>{
@@ -6420,7 +6423,8 @@ function aCalcCenter(code){
   });
   var total=scores.length;
   var score=total?Math.round(scores.reduce(function(a,b){return a+b;},0)/total*10)/10:0;
-  var monthly=[]; for(var m=1;m<=6;m++){var arr=monScore[m]; monthly.push(arr&&arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10:null);}
+  var monthly=[]; for(var m=1;m<=12;m++){var arr=monScore[m]; monthly.push(arr&&arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10:null);}
+  while(monthly.length && monthly[monthly.length-1]==null) monthly.pop();   // 데이터 있는 달까지만
   var satPct=SAT.map(function(s){return total?Math.round(satCnt[s]/total*100*10)/10:0;});
   return {total:total,score:score,monthly:monthly,satPct:satPct,satCnt:satCnt,monScore:monScore,monCat:monCat};
 }
