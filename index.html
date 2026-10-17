@@ -6961,7 +6961,7 @@ function opsGrpRow(g, span){ return '<tr class="grp"><td class="nm">' + opsEsc(g
 function opsHead(y, m, N, isOp, click, code){
   var s = '';
   for(var d = 1; d <= N; d++){
-    var w = opsDow(y, m, d), hol = OPS_HOL[y + '-' + opsP2(m) + '-' + opsP2(d)];
+    var w = opsDow(y, m, d), hol = OPS_HOL[y + '-' + opsP2(m) + '-' + opsP2(d)] || (click && opsLastSun(y, m, d) ? '마지막 주 일요일 — 배송일' : '');
     s += '<th class="dc' + (w === 6 ? ' sun' : w === 5 ? ' sat' : '') + (hol ? ' hol' : '') + (isOp(d) ? '' : ' nd') + (click ? ' hcl' : '') + '"' +
       (click ? ' data-ops-hol="' + code + '|' + d + '"' : '') + ' title="' + opsEsc(m + '/' + d + ' (' + OPS_WKD[w] + ')' + (hol ? ' ' + hol : '') + (click ? ' — 클릭: 휴무일 지정/해제' : '')) + '"><b>' + d + '</b>' + OPS_WKD[w] + '</th>';
   }
@@ -7083,15 +7083,16 @@ var OPS_LS = 'ops-sched-v1';
 var OPS_CS = (function(){ var s = null; try { s = JSON.parse(localStorage.getItem(OPS_LS) || 'null'); } catch(e){}
   s = s || {}; s.plans = s.plans || {}; s.hol = s.hol || {}; s.target = +s.target || 6; return s; })();
 function opsCsSave(){ try { localStorage.setItem(OPS_LS, JSON.stringify(OPS_CS)); } catch(e){} }
+function opsLastSun(y, m, d){ return opsDow(y, m, d) === 6 && d + 7 > opsDim(y, m); }
 function opsOff(ym, d){ var y = +ym.slice(0, 4), m = +ym.slice(5, 7);
-  var b = opsDow(y, m, d) === 6 || !!OPS_HOL[ym + '-' + opsP2(d)], t = OPS_CS.hol[ym] && OPS_CS.hol[ym].indexOf(d) >= 0; return t ? !b : b; }
-function opsGet(ym, drv, d){ var p = OPS_CS.plans[ym] && OPS_CS.plans[ym][drv], v = p && p[d]; if(v) return v === 'W' ? '' : v; return opsOff(ym, d) ? '휴' : ''; }
+  var b = (opsDow(y, m, d) === 6 && !opsLastSun(y, m, d)) || !!OPS_HOL[ym + '-' + opsP2(d)], t = OPS_CS.hol[ym] && OPS_CS.hol[ym].indexOf(d) >= 0; return t ? !b : b; }
+function opsGet(ym, drv, d){ var p = OPS_CS.plans[ym] && OPS_CS.plans[ym][drv], v = p && p[d]; if(v) return v === 'W' ? '' : (v === '연' ? '휴' : v); return opsOff(ym, d) ? '휴' : ''; }
 function opsSet(ym, drv, d, v){ var def = opsOff(ym, d) ? '휴' : '', P = OPS_CS.plans[ym] = OPS_CS.plans[ym] || {}, p = P[drv] = P[drv] || {};
   if(v === def) delete p[d]; else p[d] = (v === '' ? 'W' : v); }
 function opsDemand(){ var cnt = {}, dd = {};
   OPS_ROWS.forEach(function(r){ (dd[r.dow] = dd[r.dow] || {})[r.date] = 1; var k = r.base + '|' + r.dow; cnt[k] = (cnt[k] || 0) + 1; });
   var av = {}; for(var k in cnt) av[k] = cnt[k] / Object.keys(dd[k.split('|')[1]]).length; return av; }
-function opsNeed(av, base, w){ return w === 6 ? 0 : Math.ceil((av[base + '|' + w] || 0) / OPS_CS.target); }
+function opsNeed(av, base, w){ if(w === 6) w = 5; return Math.ceil((av[base + '|' + w] || 0) / OPS_CS.target); }   // 일요일 배송일은 토요일 물량 기준
 function opsSnap(code, st, note){ st.undo = {ym:st.ym, plan:JSON.stringify(OPS_CS.plans[st.ym] || {}), note:note}; }
 function opsAuto(code, st){
   var ym = st.ym, y = +ym.slice(0, 4), m = +ym.slice(5, 7), N = opsDim(y, m), av = opsDemand(), offN = 0;
@@ -7099,14 +7100,14 @@ function opsAuto(code, st){
   opsGroups(opsDrivers(code)).forEach(function(g){
     var offs = {}, idx = {}; g.items.forEach(function(x, i){ offs[x.drv] = 0; idx[x.drv] = i; });
     for(var d = 1; d <= N; d++){
-      if(opsOff(ym, d)){ g.items.forEach(function(x){ if(opsGet(ym, x.drv, d) !== '연') opsSet(ym, x.drv, d, '휴'); }); continue; }
-      var need = opsNeed(av, g.base, opsDow(y, m, d)), avail = g.items.filter(function(x){ return opsGet(ym, x.drv, d) !== '연'; }), n = avail.length;
+      if(opsOff(ym, d)){ g.items.forEach(function(x){ opsSet(ym, x.drv, d, '휴'); }); continue; }
+      var need = opsNeed(av, g.base, opsDow(y, m, d)), avail = g.items, n = avail.length;
       var ord = avail.slice().sort(function(a, b){ return offs[a.drv] - offs[b.drv] || ((idx[a.drv] + d) % n) - ((idx[b.drv] + d) % n); });
       var spare = Math.max(0, n - need);
       ord.forEach(function(x, i){ if(i < spare){ opsSet(ym, x.drv, d, '휴'); offs[x.drv]++; offN++; } else opsSet(ym, x.drv, d, ''); });
     }
   });
-  opsCsSave(); st.msg = '자동 편성 완료 — 평일 휴무 ' + offN + '인·일을 고르게 나눴습니다. 연차는 그대로 두었습니다.';
+  opsCsSave(); st.msg = '자동 편성 완료 — 휴무 ' + offN + '인·일을 고르게 나눴습니다 (일요일·공휴일 제외).';
 }
 function opsFill(code, st){
   var y = +st.ym.slice(0, 4), m = +st.ym.slice(5, 7), mm = opsP2(m); if(y !== OPS.y) return false;
@@ -7124,24 +7125,23 @@ function opsSched(code, st){
   opts.sort();
   var hasAct = y === OPS.y && !!ms[opsP2(m)];
   var opDays = 0; for(var dd = 1; dd <= N; dd++) if(!opsOff(ym, dd)) opDays++;
-  var T = {w:0, h:0, y:0}, shortN = 0, spare = 0;
+  var T = {w:0, h:0}, shortN = 0, spare = 0;
   var html = '<table class="ops-tbl"><thead><tr><th class="nm">CSM <small>차량 · 담당구역</small></th>' + opsHead(y, m, N, function(d){ return !opsOff(ym, d); }, true, code) +
-    '<th class="sm">근무</th><th class="sm">휴무</th><th class="sm">연차</th></tr></thead><tbody>';
+    '<th class="sm">근무</th><th class="sm">휴무</th></tr></thead><tbody>';
   var groups = opsGroups(list);
   groups.forEach(function(g){
-    if(groups.length > 1) html += opsGrpRow(g, N + 3);
+    if(groups.length > 1) html += opsGrpRow(g, N + 2);
     var work = {};
     g.items.forEach(function(x){
-      var c = {w:0, h:0, y:0}, cells = '';
+      var c = {w:0, h:0}, cells = '';
       for(var d = 1; d <= N; d++){
         var v = opsGet(ym, x.drv, d), cls, txt;
         if(v === '휴'){ cls = 'c-h' + (opsOff(ym, d) ? ' nd' : ''); txt = '휴'; c.h++; }
-        else if(v === '연'){ cls = 'c-y'; txt = '연'; c.y++; }
         else { cls = 'c-w'; txt = ''; c.w++; work[d] = (work[d] || 0) + 1; }
-        cells += '<td class="dc cs ' + cls + '" data-ops-cs="' + code + '|' + opsEsc(x.drv) + '|' + d + '" title="' + opsEsc(x.drv + ' ' + m + '/' + d + ' ' + (txt === '' ? '근무' : txt === '휴' ? '휴무' : '연차') + ' — 클릭해서 변경') + '">' + txt + '</td>';
+        cells += '<td class="dc cs ' + cls + '" data-ops-cs="' + code + '|' + opsEsc(x.drv) + '|' + d + '" title="' + opsEsc(x.drv + ' ' + m + '/' + d + ' ' + (txt === '' ? '근무' : '휴무') + ' — 클릭해서 변경') + '">' + txt + '</td>';
       }
-      T.w += c.w; T.h += c.h; T.y += c.y;
-      html += '<tr><td class="nm">' + opsEsc(x.drv) + '<small>' + opsEsc(x.veh) + ' · ' + opsEsc(x.area) + '</small></td>' + cells + '<td class="sm">' + c.w + '</td><td class="sm">' + c.h + '</td><td class="sm">' + c.y + '</td></tr>';
+      T.w += c.w; T.h += c.h;
+      html += '<tr><td class="nm">' + opsEsc(x.drv) + '<small>' + opsEsc(x.veh) + ' · ' + opsEsc(x.area) + '</small></td>' + cells + '<td class="sm">' + c.w + '</td><td class="sm">' + c.h + '</td></tr>';
     });
     var r1 = '<tr class="foot"><td class="nm">근무 인원</td>', r2 = '<tr class="foot"><td class="nm">필요 인원 (추정)</td>';
     for(var d2 = 1; d2 <= N; d2++){
@@ -7149,10 +7149,10 @@ function opsSched(code, st){
       if(opsOff(ym, d2) && !n){ r1 += '<td class="dc nd"></td>'; r2 += '<td class="dc nd"></td>'; continue; }
       var w = opsDow(y, m, d2), need = opsNeed(av, g.base, w), a = av[g.base + '|' + w] || 0;
       if(n < need) shortN++; else spare += n - need;
-      r1 += '<td class="dc' + (n < need ? ' short' : n > need ? ' more' : '') + '" title="' + opsEsc(g.base + ' ' + m + '/' + d2 + ': 근무 ' + n + '명 / 필요 ' + need + '명 (9월 ' + OPS_WKD[w] + '요일 평균 ' + opsFmt(a, 1) + '건 ÷ ' + OPS_CS.target + '건)') + '">' + n + '</td>';
+      r1 += '<td class="dc' + (n < need ? ' short' : n > need ? ' more' : '') + '" title="' + opsEsc(g.base + ' ' + m + '/' + d2 + ': 근무 ' + n + '명 / 필요 ' + need + '명 (9월 ' + OPS_WKD[w === 6 ? 5 : w] + '요일 평균 ' + opsFmt(a, 1) + '건 ÷ ' + OPS_CS.target + '건)') + '">' + n + '</td>';
       r2 += '<td class="dc">' + need + '</td>';
     }
-    html += r1 + '<td colspan="3"></td></tr>' + r2 + '<td colspan="3"></td></tr>';
+    html += r1 + '<td colspan="2"></td></tr>' + r2 + '<td colspan="2"></td></tr>';
   });
   html += '</tbody></table>';
   var nd = list.length, und = st.undo && st.undo.ym === ym;
@@ -7165,13 +7165,13 @@ function opsSched(code, st){
     '<button type="button" class="ops-btn" data-ops-clear="' + code + '">이 달 비우기</button>' +
     '<button type="button" class="ops-btn" data-ops-cscsv="' + code + '">CSV 내려받기</button></div>' +
     opsKpi([['CSM', nd + '<small>명</small>'], ['운영일', opDays + '<small>일</small>', y + '년 ' + m + '월'],
-      ['평균 근무일', (nd ? opsFmt(T.w / nd, 1) : '–') + '<small>일</small>', '연차 ' + T.y + '일'],
+      ['평균 근무일', (nd ? opsFmt(T.w / nd, 1) : '–') + '<small>일</small>', '운영일 ' + opDays + '일 중'],
       ['인원 부족', shortN + '<small>일</small>', shortN ? '빨간 칸 확인' : '모든 날 필요 인원 충족'],
       ['여유 인원', opsFmt(spare) + '<small>인·일</small>', '필요 인원 초과분']]) +
-    '<div class="ops-legend"><span><i class="ops-w"></i>근무</span><span><i>휴</i>휴무</span><span><i class="ops-y">연</i>연차</span><span><i class="ops-x"></i>근무 &lt; 필요 인원</span>' +
-    '<span>칸 클릭: 근무 → 휴무 → 연차 · 날짜 클릭: 휴무일 지정</span></div>' +
+    '<div class="ops-legend"><span><i class="ops-w"></i>근무</span><span><i>휴</i>휴무</span><span><i class="ops-x"></i>근무 &lt; 필요 인원</span>' +
+    '<span>매월 마지막 주 일요일은 배송일</span><span>칸 클릭: 근무 ↔ 휴무 · 날짜 클릭: 휴무일 지정/해제</span></div>' +
     '<p class="ops-msg">' + opsEsc(st.msg || '') + '</p><div class="ops-wrap">' + (nd ? html : '<p class="ops-note" style="padding:12px">CSM이 없습니다.</p>') + '</div>' +
-    '<p class="ops-note">필요 인원 = 9월 실적의 거점·요일별 평균 물량 ÷ CSM당 목표 방문. 계획은 이 브라우저에만 저장되니 다른 사람과 나눌 땐 CSV로 보내 주세요.</p>';
+    '<p class="ops-note">필요 인원 = 9월 실적의 거점·요일별 평균 물량 ÷ CSM당 목표 방문 (마지막 주 일요일은 토요일 물량 기준). 계획은 이 브라우저에만 저장되니 다른 사람과 나눌 땐 CSV로 보내 주세요.</p>';
 }
 
 /* --- 이벤트 --- */
@@ -7189,7 +7189,7 @@ document.addEventListener('click', function(e){
     rows.forEach(function(r){ o.push([OPS.y + '-' + r.date, r.base, r.drv, r.veh, r.area, r.seq, r.tm, r.sido, r.sgg, r.items, r.qty, r.fee, r.inst, r.km, r.chan, r.type]); });
     opsCsv('배차내역_' + code + '.csv', o); return; }
   if((el = t.closest('[data-ops-cs]'))){ p = el.getAttribute('data-ops-cs').split('|'); st = opsSt(p[0]);
-    var cur = opsGet(st.ym, p[1], +p[2]); opsSet(st.ym, p[1], +p[2], {'':'휴', '휴':'연', '연':''}[cur]); opsCsSave(); st.msg = ''; opsRender(p[0]); return; }
+    var cur = opsGet(st.ym, p[1], +p[2]); opsSet(st.ym, p[1], +p[2], cur === '' ? '휴' : ''); opsCsSave(); st.msg = ''; opsRender(p[0]); return; }
   if((el = t.closest('[data-ops-hol]'))){ p = el.getAttribute('data-ops-hol').split('|'); st = opsSt(p[0]);
     var arr = OPS_CS.hol[st.ym] = OPS_CS.hol[st.ym] || [], d = +p[1], i = arr.indexOf(d); if(i >= 0) arr.splice(i, 1); else arr.push(d);
     opsCsSave(); st.msg = (+st.ym.slice(5)) + '/' + d + (opsOff(st.ym, d) ? ' 휴무일로 지정했습니다.' : ' 운영일로 바꿨습니다.'); opsRender(p[0]); return; }
@@ -7202,10 +7202,10 @@ document.addEventListener('click', function(e){
   if((el = t.closest('[data-ops-cscsv]'))){ p = el.getAttribute('data-ops-cscsv'); st = opsSt(p);
     var y = +st.ym.slice(0, 4), m = +st.ym.slice(5, 7), N = opsDim(y, m), head = ['거점','CSM','차량','담당구역'];
     for(var dd = 1; dd <= N; dd++) head.push(m + '/' + dd + '(' + OPS_WKD[opsDow(y, m, dd)] + ')');
-    var out = [head.concat(['근무','휴무','연차'])];
-    opsDrivers(p).forEach(function(x){ var row = [x.base, x.drv, x.veh, x.area], c = {w:0, h:0, y:0};
-      for(var d5 = 1; d5 <= N; d5++){ var v = opsGet(st.ym, x.drv, d5); row.push(v === '' ? '근무' : v === '휴' ? '휴무' : '연차'); c[v === '' ? 'w' : v === '휴' ? 'h' : 'y']++; }
-      out.push(row.concat([c.w, c.h, c.y])); });
+    var out = [head.concat(['근무','휴무'])];
+    opsDrivers(p).forEach(function(x){ var row = [x.base, x.drv, x.veh, x.area], c = {w:0, h:0};
+      for(var d5 = 1; d5 <= N; d5++){ var v = opsGet(st.ym, x.drv, d5); row.push(v === '' ? '근무' : '휴무'); c[v === '' ? 'w' : 'h']++; }
+      out.push(row.concat([c.w, c.h])); });
     opsCsv('운행스케줄_' + p + '_' + st.ym + '.csv', out); return; }
 });
 document.addEventListener('change', function(e){
