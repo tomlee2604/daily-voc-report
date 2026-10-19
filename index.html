@@ -6925,7 +6925,8 @@ var OPS_HOL = {
   '2026-10-09':'한글날','2026-12-25':'성탄절','2027-01-01':'신정','2027-03-01':'삼일절'
 };
 var OPS_ST = {}, OPS_ROWS = null, OPS_ROSTER = null;
-var OPS_ALIAS = {'오영호':'오염호'};   // 배송완료 자료 표기 → 배송비 명단 표기 (같은 차량 803751)
+var OPS_ALIAS = {'오영호':'오염호'};
+var OPS_EXTRA = {incheon:['임춘빈']};   // 평균 배송비 명단에 없지만 포함할 CSM   // 배송완료 자료 표기 → 배송비 명단 표기 (같은 차량 803751)
 function opsP2(n){ return (n < 10 ? '0' : '') + n; }
 function opsDim(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
 function opsDow(y, m, d){ return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; }
@@ -6971,7 +6972,8 @@ function opsListAll(code){
       if(!((md[info.last] || 0) > 0 || has[n])) return;            // 그만둔 인원 제외
       out.push(src[n] || {hub:'', base:b[0], veh:'', drv:n, area:''});
     });
-  } else Object.keys(src).forEach(function(n){ out.push(src[n]); });
+  } else Object.keys(src).forEach(function(n){ seen[n] = 1; out.push(src[n]); });
+  (OPS_EXTRA[code] || []).forEach(function(n){ if(!seen[n]){ seen[n] = 1; out.push(src[n] || {hub:'', base:b[0], veh:'', drv:n, area:''}); } });
   out.sort(function(a, c){ return b.indexOf(a.base) - b.indexOf(c.base) || String(a.drv).localeCompare(String(c.drv), 'ko'); });
   return (OPS_LIST[code] = out);
 }
