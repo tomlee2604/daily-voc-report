@@ -6925,6 +6925,7 @@ var OPS_HOL = {
   '2026-10-09':'한글날','2026-12-25':'성탄절','2027-01-01':'신정','2027-03-01':'삼일절'
 };
 var OPS_ST = {}, OPS_ROWS = null, OPS_ROSTER = null;
+var OPS_ALIAS = {'오영호':'오염호'};   // 배송완료 자료 표기 → 배송비 명단 표기 (같은 차량 803751)
 function opsP2(n){ return (n < 10 ? '0' : '') + n; }
 function opsDim(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
 function opsDow(y, m, d){ return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; }
@@ -6933,8 +6934,9 @@ function opsFmt(n, d){ if(n == null || isNaN(n)) return '–'; return Number(n).
 function opsDecode(){
   if(OPS_ROWS) return;
   var S = OPS.S;
-  OPS_ROSTER = OPS.R.map(function(a){ return {hub:S[a[0]], base:S[a[1]], veh:S[a[2]], drv:S[a[3]], area:S[a[4]]}; });
-  OPS_ROWS = OPS.D.map(function(a){ return {hub:S[a[0]], base:S[a[1]], veh:S[a[2]], drv:S[a[3]], area:S[a[4]], date:S[a[5]], dow:a[6],
+  var nm = function(i){ var n = S[i]; return OPS_ALIAS[n] || n; };
+  OPS_ROSTER = OPS.R.map(function(a){ return {hub:S[a[0]], base:S[a[1]], veh:S[a[2]], drv:nm(a[3]), area:S[a[4]]}; });
+  OPS_ROWS = OPS.D.map(function(a){ return {hub:S[a[0]], base:S[a[1]], veh:S[a[2]], drv:nm(a[3]), area:S[a[4]], date:S[a[5]], dow:a[6],
     seq:a[7], tm:S[a[8]], sido:S[a[9]], sgg:S[a[10]], items:S[a[11]], qty:a[12], fee:a[13], inst:a[14], km:a[15], chan:S[a[16]], type:S[a[17]], rk:a[18]}; });
 }
 function opsMe(){ return (typeof currentRole !== 'undefined' && currentRole === 'rep') ? (window._repName || window._sessionRepName || '') : null; }
@@ -6945,16 +6947,40 @@ function opsSt(code){
   }
   return OPS_ST[code];
 }
-function opsRows(code){ var b = OPS_BASES[code] || []; var me = opsMe();
-  return OPS_ROWS.filter(function(r){ return b.indexOf(r.base) >= 0 && (me === null || r.drv === me); }); }
-function opsDrivers(code){
-  var b = OPS_BASES[code] || [], me = opsMe(), seen = {}, out = [];
-  OPS_ROSTER.forEach(function(x){ if(b.indexOf(x.base) >= 0 && !seen[x.drv]){ seen[x.drv] = 1; out.push(x); } });
-  OPS_ROWS.forEach(function(r){ if(b.indexOf(r.base) >= 0 && !seen[r.drv]){ seen[r.drv] = 1; out.push({hub:r.hub, base:r.base, veh:r.veh, drv:r.drv, area:r.area}); } });
-  if(me !== null) out = out.filter(function(x){ return x.drv === me; });
-  out.sort(function(a, c){ return b.indexOf(a.base) - b.indexOf(c.base) || String(a.drv).localeCompare(String(c.drv), 'ko'); });
-  return out;
+/* CSM 명단 = 센터별 'CSM별 평균 배송비' 명단 (최근 달 근무가 있거나 배송완료 실적이 있는 인원) */
+function opsCostInfo(code){
+  var cd = (typeof csmCostData !== 'undefined' && csmCostData && csmCostData[code]) || null;
+  if(!cd || !cd.length) return null;
+  var mt = (typeof csmMonthlyCostTotalData !== 'undefined' && csmMonthlyCostTotalData && csmMonthlyCostTotalData[code]) || {};
+  var ms = Object.keys(mt).filter(function(k){ return /^\d+$/.test(k); }).sort(function(a, b){ return a - b; });
+  var mdays = {};
+  ms.forEach(function(k){ (mt[k] || []).forEach(function(x){ (mdays[x.name] = mdays[x.name] || {})[k] = x.days || 0; }); });
+  return {names:cd.map(function(x){ return x.name; }), last:ms[ms.length - 1], mdays:mdays};
 }
+var OPS_LIST = {};
+function opsListAll(code){
+  if(OPS_LIST[code]) return OPS_LIST[code];
+  var b = OPS_BASES[code] || [], src = {}, has = {}, out = [], seen = {};
+  OPS_ROSTER.forEach(function(x){ if(b.indexOf(x.base) >= 0 && !src[x.drv]) src[x.drv] = x; });
+  OPS_ROWS.forEach(function(r){ if(b.indexOf(r.base) >= 0){ has[r.drv] = 1; if(!src[r.drv]) src[r.drv] = {hub:r.hub, base:r.base, veh:r.veh, drv:r.drv, area:r.area}; } });
+  var info = opsCostInfo(code);
+  if(info){
+    info.names.forEach(function(n){
+      if(seen[n]) return; seen[n] = 1;
+      var md = info.mdays[n] || {};
+      if(!((md[info.last] || 0) > 0 || has[n])) return;            // 그만둔 인원 제외
+      out.push(src[n] || {hub:'', base:b[0], veh:'', drv:n, area:''});
+    });
+  } else Object.keys(src).forEach(function(n){ out.push(src[n]); });
+  out.sort(function(a, c){ return b.indexOf(a.base) - b.indexOf(c.base) || String(a.drv).localeCompare(String(c.drv), 'ko'); });
+  return (OPS_LIST[code] = out);
+}
+function opsDrivers(code){ var me = opsMe(), l = opsListAll(code); return me === null ? l : l.filter(function(x){ return x.drv === me; }); }
+function opsRows(code){
+  var b = OPS_BASES[code] || [], ok = {}; opsDrivers(code).forEach(function(x){ ok[x.drv] = 1; });
+  return OPS_ROWS.filter(function(r){ return b.indexOf(r.base) >= 0 && ok[r.drv]; });
+}
+function opsSubOf(x){ return (x.veh || x.area) ? '<small>' + opsEsc(x.veh) + ' · ' + opsEsc(x.area) + '</small>' : '<small>배송완료 자료 없음</small>'; }
 function opsGroups(list){ var g = [], cur = null;
   list.forEach(function(x){ if(!cur || cur.base !== x.base){ cur = {base:x.base, items:[]}; g.push(cur); } cur.items.push(x); }); return g; }
 function opsGrpRow(g, span){ return '<tr class="grp"><td class="nm">' + opsEsc(g.base) + '<small>' + g.items.length + '명</small></td><td colspan="' + span + '"></td></tr>'; }
@@ -6999,15 +7025,23 @@ function opsRoster(code, st){
   OPS_ROWS.forEach(function(r){ if(r.date.slice(0, 2) === st.mon) opDay[+r.date.slice(3, 5)] = 1; });
   rows.forEach(function(r){ if(r.date.slice(0, 2) !== st.mon) return; var d = +r.date.slice(3, 5);
     cnt[r.drv + '|' + d] = (cnt[r.drv + '|' + d] || 0) + 1; fee[r.drv] = (fee[r.drv] || 0) + (r.fee || 0); });
-  var opN = Object.keys(opDay).length, totW = 0, offSum = 0;
+  var opN = Object.keys(opDay).length, totW = 0, offSum = 0, ndData = 0, info = opsCostInfo(code);
+  var hasMon = {}; Object.keys(cnt).forEach(function(k){ hasMon[k.split('|')[0]] = 1; });
   var html = '<table class="ops-tbl"><thead><tr><th class="nm">CSM <small>차량 · 담당구역</small></th>' +
     opsHead(y, m, N, function(d){ return !!opDay[d]; }, false, code) +
     '<th class="sm">근무일</th><th class="sm">휴무</th><th class="sm">방문</th><th class="sm">일평균</th><th class="sm">운임 합계</th></tr></thead><tbody>';
   var groups = opsGroups(list);
   groups.forEach(function(g){
     if(groups.length > 1) html += opsGrpRow(g, N + 5);
-    var per = {};
+    var per = {}, gData = 0;
     g.items.forEach(function(x){
+      if(!hasMon[x.drv]){
+        var cdays = info && info.mdays[x.drv] ? info.mdays[x.drv][String(m)] : null;
+        html += '<tr><td class="nm">' + opsEsc(x.drv) + opsSubOf(x) + '</td><td class="off" colspan="' + N + '" style="text-align:left;padding-left:12px">이 달 배송완료 자료 없음' +
+          (cdays ? ' — 배송비 자료상 근무 ' + cdays + '일' : '') + '</td><td class="sm">–</td><td class="sm">–</td><td class="sm">–</td><td class="sm">–</td><td class="sm">–</td></tr>';
+        return;
+      }
+      gData++; ndData++;
       var wd = 0, stp = 0, off = 0, cells = '';
       for(var d = 1; d <= N; d++){
         var c = cnt[x.drv + '|' + d] || 0;
@@ -7017,13 +7051,13 @@ function opsRoster(code, st){
         else cells += '<td class="dc nd"></td>';
       }
       totW += wd;
-      html += '<tr><td class="nm">' + opsEsc(x.drv) + '<small>' + opsEsc(x.veh) + ' · ' + opsEsc(x.area) + '</small></td>' + cells + '<td class="sm">' + wd + '</td><td class="sm">' + off +
+      html += '<tr><td class="nm">' + opsEsc(x.drv) + opsSubOf(x) + '</td>' + cells + '<td class="sm">' + wd + '</td><td class="sm">' + off +
         '</td><td class="sm">' + opsFmt(stp) + '</td><td class="sm">' + (wd ? opsFmt(stp / wd, 1) : '–') + '</td><td class="sm">' + opsFmt(fee[x.drv] || 0) + '</td></tr>';
     });
-    if(g.items.length > 1){
-      var fr = '<tr class="foot"><td class="nm">출근 인원 / ' + g.items.length + '명</td>';
+    if(gData > 1){
+      var fr = '<tr class="foot"><td class="nm">출근 인원 / ' + gData + '명</td>';
       for(var d2 = 1; d2 <= N; d2++){ if(!opDay[d2]){ fr += '<td class="dc nd"></td>'; continue; }
-        var n = per[d2] || 0; offSum += g.items.length - n; fr += '<td class="dc">' + n + '</td>'; }
+        var n = per[d2] || 0; offSum += gData - n; fr += '<td class="dc">' + n + '</td>'; }
       html += fr + '<td colspan="5"></td></tr>';
     }
   });
@@ -7031,9 +7065,9 @@ function opsRoster(code, st){
   var nd = list.length;
   return '<div class="ops-tools"><label>월 <select class="ops-sel" data-ops-mon="' + code + '">' + ml.map(function(k){ return '<option value="' + k + '"' + (k === st.mon ? ' selected' : '') + '>' + y + '년 ' + (+k) + '월</option>'; }).join('') +
     '</select></label><span class="sp"></span><span style="color:var(--text3)">' + OPS.src + '</span></div>' +
-    opsKpi([['CSM', nd + '<small>명</small>'], ['운영일', opN + '<small>일</small>', '일요일·공휴일 제외'],
-      ['평균 근무일', (nd ? opsFmt(totW / nd, 1) : '–') + '<small>일</small>', '운영일 ' + opN + '일 중'],
-      ['하루 평균 휴무', (opN && nd > 1 ? opsFmt(offSum / opN, 1) : '–') + '<small>명</small>', '운영일 기준']]) +
+    opsKpi([['CSM', nd + '<small>명</small>', '평균 배송비 명단 기준'], ['운영일', opN + '<small>일</small>', '일요일·공휴일 제외'],
+      ['평균 근무일', (ndData ? opsFmt(totW / ndData, 1) : '–') + '<small>일</small>', '운영일 ' + opN + '일 중' + (ndData < nd ? ' · 자료 있는 ' + ndData + '명' : '')],
+      ['하루 평균 휴무', (opN && ndData > 1 ? opsFmt(offSum / opN, 1) : '–') + '<small>명</small>', '운영일 기준']]) +
     '<div class="ops-legend"><span><i class="ops-l"></i>근무 (숫자 = 완료 방문 건수, 진할수록 많음)</span><span><i>휴</i>운영일 휴무</span><span><i style="background:var(--surface2)"></i>일요일·공휴일</span><span>칸을 누르면 그날 배차내역으로 이동</span></div>' +
     '<div class="ops-wrap">' + (nd ? html : '<p class="ops-note" style="padding:12px">CSM이 없습니다.</p>') + '</div>';
 }
@@ -7089,8 +7123,9 @@ function opsOff(ym, d){ var y = +ym.slice(0, 4), m = +ym.slice(5, 7);
 function opsGet(ym, drv, d){ var p = OPS_CS.plans[ym] && OPS_CS.plans[ym][drv], v = p && p[d]; if(v) return v === 'W' ? '' : (v === '연' ? '휴' : v); return opsOff(ym, d) ? '휴' : ''; }
 function opsSet(ym, drv, d, v){ var def = opsOff(ym, d) ? '휴' : '', P = OPS_CS.plans[ym] = OPS_CS.plans[ym] || {}, p = P[drv] = P[drv] || {};
   if(v === def) delete p[d]; else p[d] = (v === '' ? 'W' : v); }
-function opsDemand(){ var cnt = {}, dd = {};
-  OPS_ROWS.forEach(function(r){ (dd[r.dow] = dd[r.dow] || {})[r.date] = 1; var k = r.base + '|' + r.dow; cnt[k] = (cnt[k] || 0) + 1; });
+function opsDemand(){ var cnt = {}, dd = {}, ok = {};
+  Object.keys(OPS_BASES).forEach(function(c){ opsListAll(c).forEach(function(x){ ok[x.drv] = 1; }); });
+  OPS_ROWS.forEach(function(r){ (dd[r.dow] = dd[r.dow] || {})[r.date] = 1; if(!ok[r.drv]) return; var k = r.base + '|' + r.dow; cnt[k] = (cnt[k] || 0) + 1; });
   var av = {}; for(var k in cnt) av[k] = cnt[k] / Object.keys(dd[k.split('|')[1]]).length; return av; }
 function opsNeed(av, base, w){ if(w === 6) w = 5; return Math.ceil((av[base + '|' + w] || 0) / OPS_CS.target); }   // 일요일 배송일은 토요일 물량 기준
 function opsSnap(code, st, note){ st.undo = {ym:st.ym, plan:JSON.stringify(OPS_CS.plans[st.ym] || {}), note:note}; }
@@ -7141,7 +7176,7 @@ function opsSched(code, st){
         cells += '<td class="dc cs ' + cls + '" data-ops-cs="' + code + '|' + opsEsc(x.drv) + '|' + d + '" title="' + opsEsc(x.drv + ' ' + m + '/' + d + ' ' + (txt === '' ? '근무' : '휴무') + ' — 클릭해서 변경') + '">' + txt + '</td>';
       }
       T.w += c.w; T.h += c.h;
-      html += '<tr><td class="nm">' + opsEsc(x.drv) + '<small>' + opsEsc(x.veh) + ' · ' + opsEsc(x.area) + '</small></td>' + cells + '<td class="sm">' + c.w + '</td><td class="sm">' + c.h + '</td></tr>';
+      html += '<tr><td class="nm">' + opsEsc(x.drv) + opsSubOf(x) + '</td>' + cells + '<td class="sm">' + c.w + '</td><td class="sm">' + c.h + '</td></tr>';
     });
     var r1 = '<tr class="foot"><td class="nm">근무 인원</td>', r2 = '<tr class="foot"><td class="nm">필요 인원 (추정)</td>';
     for(var d2 = 1; d2 <= N; d2++){
