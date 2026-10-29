@@ -320,6 +320,283 @@ i.ops-w{background:rgba(5,150,105,.13)} i.ops-l{background:rgba(5,150,105,.38)} 
 .rt-keyform{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--border);background:var(--surface2)}
 @media(max-width:1000px){.rt-main{grid-template-columns:1fr}.rt-map{height:440px}.rt-list{max-height:none}.rt-kpis{grid-template-columns:repeat(2,1fr)}}
 </style>
+<!-- ===== ERP 테마 (시연 디자인) — 화면 스타일만 바꾸고 기능·데이터는 그대로 ===== -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style id="erp-theme">
+:root{--bg:#E6EAF0;--surface:#FFFFFF;--surface2:#F4F6F9;--surface3:#E9EEF5;--border:#B9C3CF;--text:#1E2933;--text2:#3E4B5B;--text3:#5B6775;
+  --accent:#2B5797;--accent2:#1D4E89;--radius:3px;--radius-sm:3px;--erp-navy:#1F3A5F;--erp-line:#D5DCE5}
+body{background:var(--bg);font-size:13px}
+body::before{display:none!important}
+*{animation:none!important}
+.tab-content.active{animation:none!important}
+
+/* ── 틀: 상단 바 + 왼쪽 메뉴 ── */
+#mainContainer{max-width:none!important;margin:0!important;padding:0 0 60px 212px!important}
+#mainContainer>*{margin-left:16px;margin-right:16px}
+#mainContainer>.header{margin:0 0 0 -212px!important;position:sticky;top:0;z-index:50;background:var(--erp-navy);color:#fff;padding:0 16px;min-height:52px;display:flex;align-items:center}
+#mainContainer>.header>div{width:100%;align-items:center!important}
+.header-tag{display:none!important}
+.header h1{font-family:'Noto Sans KR',sans-serif!important;font-size:15px!important;font-weight:700!important;letter-spacing:-.2px!important;background:none!important;-webkit-text-fill-color:#fff!important;color:#fff!important;margin:0!important;display:flex;align-items:center;gap:10px}
+.header h1::before{content:'';width:28px;height:28px;flex:none;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADcAAAA3CAYAAACo29JGAAACgklEQVR42u2aO28TQRRGz64tJ5CAQh4gUSHRgJDoePwGoAEiEBXQEhANAkqKlCCgQHS8OpAokHj8AR4lXYSBjiAiQRFASuLYzkexs5Jl2Yl3dtZmV/NJlq2d9ew9c2fuzN6ZQBKWGgb2AiWgtZIAWAB+AvtNmc1DAmAJmLM1sGz5vxHgLjBtjGg36htwBTgNnALqlnA14AZwz8pKSUk/myU91Mb6Kmla0kul06qkGQs7E8ON9AgW64uk45JepASs2QAmuXlU0iMLw2LANw4AL2YBt8USLNZnSWclvUsJuJIEsJebtqYEi1U1gG9T1rMs6ZILuO2SnsudqpLO9QtwvcIpSa/lXjFg5l20W8FERmCxPjkag+tG0U4XxyW9UvaKAT9kBdjJY/0AizVnJvp5B4AX2uHClsXKJPAEOEL/tMd8L6SspwLcBmZaL8ZwU8DjPoMBNMwaMnRQVwW41QpYBiaABwMAy0JDwE3z+34IHAKOURwNA1eBydB0iQbFUgiEIcWUcDSQ/2v3eTgP5+E8nBMlSe1VgY/AbuBA0Tz3FDgD3Clit9wHHAUOF7FbngROdMgwFyag5AbMTwUZKyi655rYbXE5DSg1YBZYxH7rq111on28TYOGWwLeA9eAHcCaIxtGgV2DhhMwDhwExooYUJSnlISfCjych/NwHs7DeTgPl+80g0v9Av52eJ9bM+vXsTzDzQLPiI4ztqoBXAcu591zP7qU/c77mCv1wyYfLdve53IFF/Q49kpEm+nljBs1dNXty8AfojPJlQ080wTOmxC+kuLBIkoyddMiUdKoaVl/AMwD9UDSELCzhxaLPVxP2aoykXK5S/k2otNMaRJQq8D3f7DMIg6PDFB3AAAAAElFTkSuQmCC) center/contain no-repeat}
+.header p{font-size:11.5px!important;color:#C9D6E8!important;font-weight:400!important;margin-left:38px}
+.header>div>div:first-child{display:flex;flex-direction:column;padding:6px 0}
+.header>div>div:last-child{flex-direction:row!important;align-items:center!important;margin:0!important;gap:8px!important}
+#sessionTimerBox{background:rgba(255,255,255,.1)!important;border:1px solid rgba(255,255,255,.25)!important;color:#DCE6F3!important;padding:4px 10px!important;border-radius:2px!important;font-size:12px!important}
+#sessionTimerVal{color:#fff!important}
+.header button{background:transparent!important;color:#fff!important;border:1px solid rgba(255,255,255,.5)!important;padding:4px 12px!important;font-size:12px!important;border-radius:2px!important}
+
+#mainContainer>.tab-bar{margin:0!important;position:fixed;top:52px;left:0;bottom:0;width:212px;z-index:40;overflow-y:auto!important;display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;gap:0!important;
+  background:#F4F6F9!important;border:0!important;border-right:1px solid var(--border)!important;border-radius:0!important;padding:8px 0 16px!important}
+.tab-bar .tab-btn{flex:none!important;justify-content:flex-start!important;text-align:left;border-radius:0!important;padding:7px 14px 7px 22px!important;margin:0!important;border:0!important;font-size:12.5px!important;font-weight:400!important;color:var(--text)!important;background:transparent!important;gap:8px}
+.tab-bar .tab-btn:hover{background:#E4EAF2!important}
+.tab-bar .tab-btn.active{background:#2B5797!important;color:#fff!important;font-weight:500!important}
+.tab-bar .tab-btn.erp-sub{padding-left:34px!important}
+.erp-grp{padding:12px 14px 5px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.4px}
+.erp-grp:not(:first-child){border-top:1px solid var(--erp-line);margin-top:6px}
+.erp-dot{display:inline-block;width:8px;height:8px;border-radius:50%!important;flex:none}
+#mainContainer>.tab-content{padding-top:14px}
+
+/* ── 공통 모양: 각진 칸 ── */
+#mainContainer [style*="border-radius"]:not([style*="50%"]){border-radius:3px!important}
+#mainContainer [style*="box-shadow"]{box-shadow:none!important}
+.section{margin-bottom:8px!important}
+.section-title{font-family:'Noto Sans KR',sans-serif!important;font-size:14px!important;font-weight:700!important;letter-spacing:0!important;margin:6px 0 8px!important;padding:7px 10px;background:#F4F6F9;border:1px solid var(--border);border-left:4px solid var(--erp-navy)}
+.section-title .dot{width:8px!important;height:8px!important}
+.kpi-row{gap:0!important;margin-bottom:14px!important;background:#fff;border:1px solid var(--border)}
+.kpi-card{border:0!important;border-right:1px solid var(--erp-line)!important;border-radius:0!important;padding:12px 14px!important;transition:none!important}
+.kpi-card:last-child{border-right:0!important}
+.kpi-card:hover{transform:none!important}
+.kpi-label{font-size:11.5px!important;color:var(--text3)!important}
+.kpi-value{font-family:'Roboto Mono',monospace!important;font-size:24px!important;font-weight:500!important;letter-spacing:-.5px!important}
+.kpi-sub{font-size:11px!important}
+.chart-grid{gap:10px!important;margin-bottom:14px!important}
+.chart-card{border-radius:3px!important;border-color:var(--border)!important;padding:12px 14px!important}
+.chart-card h3{font-size:12.5px!important;font-weight:700!important;color:var(--text)!important;margin:-12px -14px 10px!important;padding:7px 12px;background:#F4F6F9;border-bottom:1px solid var(--border)}
+.chart-card h3::before{content:'■ ';color:var(--erp-navy)}
+.table-wrap{border-radius:3px!important;border-color:var(--border)!important;margin-bottom:14px!important}
+.table-wrap th,#mainContainer table th{background:#E9EEF5!important;color:#2A3746!important;font-size:12px!important;font-weight:500!important;padding:7px 8px!important;border:1px solid #C3CCD8!important}
+.table-wrap td,#mainContainer table td{font-size:12px!important;padding:6px 8px!important;border:1px solid var(--erp-line)!important;font-variant-numeric:tabular-nums}
+#mainContainer table tbody tr:nth-child(even) td{background-color:#F8FAFC}
+.table-wrap tr:hover td{background:#EAF1FB!important}
+#mainContainer button{border-radius:2px}
+#mainContainer input,#mainContainer select,#mainContainer textarea{border-radius:2px!important}
+.ops-block{border-radius:3px!important;padding:12px 14px!important;margin-bottom:14px!important}
+.ops-seg{border-radius:0!important;background:transparent!important;padding:0!important;gap:2px!important;border-bottom:2px solid var(--erp-navy);display:flex!important}
+.ops-seg button{border-radius:2px 2px 0 0!important;border:1px solid var(--border)!important;border-bottom:0!important;background:#fff!important;color:#2A3746!important;padding:6px 16px!important}
+.ops-seg button.on{background:var(--erp-navy)!important;color:#fff!important;border-color:var(--erp-navy)!important;box-shadow:none!important}
+.ops-kpi{border-radius:0!important;background:#fff!important;border:1px solid var(--erp-line)}
+.ops-kpi .v{font-family:'Roboto Mono',monospace!important;font-weight:500!important}
+
+/* 로그인 */
+#loginScreen>div{border-radius:3px!important;border:1px solid var(--border)!important;padding:0 0 28px!important;overflow:hidden}
+#loginScreen>div>div:first-child{background:var(--erp-navy);color:#fff;font-size:34px!important;padding:22px 0 10px;margin:0 0 0!important}
+#loginScreen h2{font-family:'Noto Sans KR',sans-serif!important;font-size:18px!important;background:var(--erp-navy);color:#fff!important;padding:0 0 18px;margin:0 0 18px!important}
+#loginScreen p,#loginScreen input,#loginScreen label,#loginScreen button,#loginScreen #loginError,#loginScreen #loginPwChange{margin-left:28px!important;margin-right:28px!important;width:calc(100% - 56px)!important}
+#loginScreen input[type=checkbox]{width:16px!important;margin:0!important}
+#loginScreen input{border-radius:2px!important;border:1px solid #A9B4C2!important;background:#fff!important}
+#loginScreen button{border-radius:2px!important}
+#loginScreen button[onclick="doLogin()"]{background:var(--erp-navy)!important}
+#loginScreen #loginPwToggle{background:none!important;width:auto!important}
+#loginScreen button[onclick="showInstallGuide()"]{background:#EEF3FA!important;border-color:#2B5797!important;color:#2B5797!important;margin:0!important;width:100%!important}
+#loginScreen #loginPwChange button{margin:0!important;width:100%!important}
+#loginScreen>div>div:last-child{padding-left:28px!important;padding-right:28px!important}
+
+/* 관리자 버튼 → 상단 바 안으로 */
+#adminBtn button{border-radius:3px!important}
+.header #adminBtn{position:static!important;inset:auto!important;z-index:auto!important}
+.header #adminBtn button{box-shadow:none!important;background:transparent!important;padding:4px 12px!important;font-size:12px!important;font-weight:600!important;gap:5px!important}
+.header #adminBtn button:hover,.header button:hover{background:rgba(255,255,255,.12)!important}
+#sessionTimerIcon{display:none!important}
+
+/* (1) 로그인: 트럭 대신 E 로고 */
+#loginScreen>div>div:first-child{font-size:0!important;line-height:0!important;padding:26px 0 12px!important}
+#loginScreen>div>div:first-child::before{content:'';display:inline-block;width:96px;height:72px;background:url(data:image/png;base64,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) center/contain no-repeat}
+
+/* (1) 본문 글꼴: 장식용 Outfit 대신 기본 글꼴 */
+#mainContainer h1,#mainContainer h2,#mainContainer h3,#mainContainer h4{font-family:'Noto Sans KR',sans-serif!important}
+
+/* (2) 숫자 카드 통일: 순회차량 KPI도 붙은 칸 + 고정폭 숫자 */
+.rt-kpis{gap:0!important;background:#fff;border:1px solid var(--border)}
+.rt-kpi{border:0!important;border-right:1px solid var(--erp-line)!important;border-top:3px solid #2B5797!important;border-radius:0!important;padding:12px 14px!important}
+.rt-kpi:last-child{border-right:0!important}
+.rt-kpi .l{font-size:11.5px!important;color:var(--text3)!important}
+.rt-kpi .v,.rt-km{font-family:'Roboto Mono',monospace!important;font-weight:500!important;letter-spacing:-.5px!important}
+.rt-kpi .v{font-size:24px!important}
+.rt-kpi .v small{font-family:'Noto Sans KR',sans-serif!important;font-size:12px!important}
+.rt-km{font-size:16px!important}
+.ops-kpi{border-top:3px solid #2B5797!important}
+.rt-controls,.rt-chip,.rt-select,.rt-list-card,.rt-btn,.rt-card,.rt-tag,.rt-nocost,.rt-detail,.rt-step,.rt-map-card{border-radius:2px!important}
+.rt-card.on,.rt-card.active{border-color:#2B5797!important}
+
+/* (3) 버튼 통일: 주요 버튼 = 남색, 보조 버튼 = 흰 바탕 회색 테두리 */
+#mainContainer .erp-pri{background:var(--erp-navy)!important;border-color:var(--erp-navy)!important;color:#fff!important}
+#mainContainer button[onclick^="exportCenterPDF"],#mainContainer button[data-interview],#mainContainer .cost-blur-btn,#mainContainer .rt-btn:not(.on){background:#fff!important;border:1px solid #A9B4C2!important;color:#2A3746!important;border-radius:2px!important;padding:5px 12px!important;font-size:12px!important;box-shadow:none!important}
+#mainContainer button[onclick^="exportCenterPDF"]:hover,#mainContainer button[data-interview]:hover,#mainContainer .cost-blur-btn:hover,#mainContainer .rt-btn:not(.on):hover{background:#EEF3FA!important;border-color:#2B5797!important}
+#mainContainer .bestFilterBtn,#mainContainer .praiseFilterBtn,#mainContainer .suggestFilterBtn,#mainContainer .knowhowFilterBtn{border-radius:2px!important}
+/* 불만 VOC 등급 칩: 색 사각형 + 선택 시 남색 테두리 */
+#viControls button[onclick^="viToggleGrade"]{border:1px solid #B9C3CF!important;background:#fff!important;color:var(--text3)!important;border-radius:2px!important;padding:5px 11px!important;display:inline-flex;align-items:center;gap:6px}
+#viControls button[onclick^="viToggleGrade"]::before{content:'';width:9px;height:9px;flex:none;opacity:.35}
+#viControls button[onclick^="viToggleGrade"]:not([style*="var(--surface)"]){background:#E8EEF7!important;border-color:#2B5797!important;color:var(--erp-navy)!important;font-weight:700!important}
+#viControls button[onclick^="viToggleGrade"]:not([style*="var(--surface)"])::before{opacity:1}
+#viControls button[onclick="viToggleGrade('매우만족')"]::before{background:#10b981}
+#viControls button[onclick="viToggleGrade('만족')"]::before{background:#3b82f6}
+#viControls button[onclick="viToggleGrade('보통')"]::before{background:#f59e0b}
+#viControls button[onclick="viToggleGrade('불만족')"]::before{background:#ea580c}
+#viControls button[onclick="viToggleGrade('매우불만족')"]::before{background:#dc2626}
+#viSummary button{border-radius:2px!important}
+
+/* (4) 화면 경로 줄 */
+.erp-crumb{position:sticky;top:52px;z-index:30;margin:0 0 0 0!important;padding:0 16px;height:34px;display:flex;align-items:center;gap:12px;background:#fff;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3)}
+.erp-crumb .path{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.erp-crumb .path b{color:var(--erp-navy);font-size:13px}
+.erp-crumb .path i{font-style:normal;color:#9AA6B4}
+.erp-crumb .cond{margin-left:auto;display:flex;gap:14px;white-space:nowrap}
+.erp-crumb .cond span em{font-style:normal;color:var(--text);font-weight:500;font-family:'Roboto Mono',monospace;font-size:11.5px}
+.erp-crumb .cond span strong{color:var(--text);font-weight:500}
+
+@media (max-width:900px){
+  #mainContainer{padding-left:0!important}
+  #mainContainer>.header{margin:0!important}
+  #mainContainer>*{margin-left:10px;margin-right:10px}
+  #mainContainer>.header{margin:0!important}
+  #mainContainer>.tab-bar{position:sticky;top:52px;width:auto;bottom:auto;z-index:40;flex-direction:row!important;overflow-x:auto!important;min-height:0;border-right:0!important;border-bottom:1px solid var(--border)!important;margin:0!important;padding:0!important}
+  .tab-bar .tab-btn,.tab-bar .tab-btn.erp-sub{padding:9px 12px!important;white-space:nowrap}
+  .erp-grp{display:none}
+  .header p{display:none}
+  .kpi-row{grid-template-columns:repeat(2,1fr)!important}
+  /* (7) 모바일: 홀수 개 마지막 카드는 한 줄 전체, 상단 버튼 한 줄 유지 */
+  .kpi-row>.kpi-card:last-child:nth-child(odd),.rt-kpis>.rt-kpi:last-child:nth-child(odd){grid-column:1/-1}
+  .kpi-row>.kpi-card:nth-child(2n){border-right:0!important}
+  .kpi-row>.kpi-card{border-bottom:1px solid var(--erp-line)!important}
+  .rt-kpi:nth-child(2n){border-right:0!important}
+  #mainContainer>.header{flex-wrap:wrap;padding:6px 10px!important;position:relative!important}
+  #mainContainer>.header>div{flex-wrap:wrap!important;gap:6px!important}
+  .header>div>div:first-child{padding:2px 0!important}
+  .header>div>div:last-child{flex-wrap:nowrap!important;gap:6px!important;margin-left:auto!important}
+  #sessionTimerBox>span:not(#sessionTimerVal){display:none!important}
+  #sessionTimerBox{padding:3px 8px!important}
+  .header button,.header #adminBtn button{padding:4px 9px!important;white-space:nowrap}
+  .erp-crumb{position:static;padding:0 10px;margin:0!important}
+  .erp-crumb .cond{display:none}
+  #mainContainer>.tab-bar{top:0}
+}
+@media print{#mainContainer{padding-left:0!important}#mainContainer>.tab-bar,.erp-crumb{display:none!important}#mainContainer>.header{position:static}}
+</style>
+<script>
+/* ERP 테마: 왼쪽 메뉴에 묶음 제목·센터 색 점을 붙이고 메뉴 글자의 이모지를 뺀다 (기능은 그대로) */
+(function(){
+  function erpMenu(){
+    var bar = document.querySelector('#mainContainer > .tab-bar'); if(!bar) return;
+    var done = bar.getAttribute('data-erp'); /* 저장된 HTML을 다시 열면 메뉴 손질은 이미 돼 있음 → 관찰만 다시 연결 */
+    bar.setAttribute('data-erp', '1');
+    var CCOL = {gyeonggi:'#2563EB', incheon:'#7C3AED', jeonju:'#0D9488', cheongwon:'#16A34A', jangyu:'#EA580C', daegu:'#DB2777', jeju:'#0891B2'};
+    var GRP = {overview:'VOC 관리', gyeonggi:'센터별 현황', vocissues:'VOC 분석', route:'운영', best:'커뮤니티'};
+    if(!done) [].forEach.call(bar.querySelectorAll('.tab-btn'), function(b){
+      var m = (b.getAttribute('onclick') || '').match(/sw\('(\w+)'/); if(!m) return; var id = m[1];
+      b.style.borderLeft = ''; b.style.marginLeft = ''; b.style.paddingLeft = '';
+      [].forEach.call(b.childNodes, function(n){ if(n.nodeType === 3) n.textContent = n.textContent.replace(/^[\s☀-➿️\u{1F300}-\u{1FAFF}]+/u, ''); });
+      if(GRP[id]){ var g = document.createElement('div'); g.className = 'erp-grp'; g.textContent = GRP[id]; bar.insertBefore(g, b); }
+      if(CCOL[id]){ b.classList.add('erp-sub'); var d = document.createElement('span'); d.className = 'erp-dot'; d.style.background = CCOL[id]; b.insertBefore(d, b.firstChild); }
+    });
+    /* 로그인 권한으로 숨겨진 메뉴만 남은 묶음 제목은 숨김 */
+    function tidy(){ [].forEach.call(bar.querySelectorAll('.erp-grp'), function(g){ var n = g.nextElementSibling, vis = false;
+      while(n && !n.classList.contains('erp-grp')){ if(n.style.display !== 'none') vis = true; n = n.nextElementSibling; } g.style.display = vis ? '' : 'none'; }); }
+    tidy(); new MutationObserver(function(){ tidy(); crumb(); }).observe(bar, {attributes:true, subtree:true, attributeFilter:['style','class']});
+  }
+
+  /* (6) 불만 VOC 화면은 처음부터 불만족·매우불만족만 (칩으로 다른 등급 추가 가능) */
+  if(!window._viGrades) window._viGrades = ['불만족', '매우불만족'];
+
+  /* (4) 화면 경로 줄: 묶음 › 화면 이름 + 집계 기간·사용자 */
+  var _lastDate = null;
+  function lastVocDate(){
+    if(_lastDate !== null) return _lastDate; _lastDate = '';
+    try{ Object.keys(csmVocFull).forEach(function(k){ var o = csmVocFull[k];
+      Object.keys(o).forEach(function(g){ (o[g] || []).forEach(function(r){ if(r && r.date && r.date > _lastDate) _lastDate = r.date; }); }); }); }catch(e){}
+    return _lastDate;
+  }
+  function who(){
+    var r = null; try{ r = currentRole; }catch(e){}
+    if(!r) return '';
+    if(r === 'master') return '마스터 (전체)';
+    if(r === 'rep') return (window._repName || '') + ' CSM';
+    return r;
+  }
+  function crumb(){
+    var mc = document.getElementById('mainContainer'), bar = document.querySelector('#mainContainer > .tab-bar'); if(!mc || !bar) return;
+    var el = document.getElementById('erpCrumb');
+    if(!el){ el = document.createElement('div'); el.id = 'erpCrumb'; el.className = 'erp-crumb'; bar.parentNode.insertBefore(el, bar.nextSibling); }
+    var act = bar.querySelector('.tab-btn.active'); if(!act) return;
+    var grp = '', n = act.previousElementSibling;
+    while(n){ if(n.classList.contains('erp-grp')){ grp = n.textContent; break; } n = n.previousElementSibling; }
+    var name = act.textContent.replace(/β/g, '').trim();
+    var d = lastVocDate(), u = who();
+    var html = '<div class="path"><span>홈</span><i>›</i><span>' + grp + '</span><i>›</i><b>' + name + '</b></div><div class="cond">';
+    if(d) html += '<span>VOC 집계 <em>' + d.slice(0,4) + '.01.01 ~ ' + d.replace(/-/g, '.') + '</em></span>';
+    if(u) html += '<span>사용자 <strong>' + u + '</strong></span>';
+    html += '</div>';
+    if(el.innerHTML !== html) el.innerHTML = html;
+  }
+
+  /* (5) 떠 있는 관리자 버튼 → 상단 바 (세션 시간 오른쪽) */
+  function moveAdmin(){
+    var a = document.getElementById('adminBtn'), box = document.getElementById('sessionTimerBox');
+    if(!a || !box) return;
+    if(a.parentNode !== box.parentNode) box.parentNode.insertBefore(a, box.nextSibling);
+    /* 관리자 버튼은 마스터 계정에만 (원래 코드 의도) */
+    var r = null; try{ r = currentRole; }catch(e){}
+    var want = r === 'master' ? 'block' : 'none'; if(a.style.display !== want) a.style.display = want;
+  }
+
+  /* (1) 이모지 정리: 버튼·제목·안내문 같은 화면 틀에서만 (VOC 원문·게시글 내용은 그대로) */
+  var EMO = /(?:\p{Extended_Pictographic}|️|‍|⃣)+\s*/gu;
+  var CHROME = 'button, button > span, h1, h2, h3, h4, .section-title, .section-title span, .kpi-sub, .kpi-label, label';
+  function stripEmoji(root){
+    [].forEach.call((root || document).querySelectorAll(CHROME), function(el){
+      if(el.closest('td, .i-icon, #tab-track, textarea')) return;
+      [].forEach.call(el.childNodes, function(n){
+        if(n.nodeType !== 3) return; var t = n.textContent; if(!/\p{Extended_Pictographic}/u.test(t)) return;
+        var v = t.replace(/📈\s*/gu, '▲ ').replace(/📉\s*/gu, '▼ ').replace(EMO, '');
+        if(v !== t) n.textContent = v;
+      });
+    });
+  }
+
+  /* (3) 버튼 색 통일: 흰 글씨의 원색 버튼(초록·주황 등)은 남색으로. 빨강(삭제 등)·메뉴·그래프 범례는 제외 */
+  function solidLoud(b){
+    var cs = getComputedStyle(b), c = cs.color, bg = cs.backgroundColor;
+    if(!/^rgb\(255, 255, 255\)$/.test(c)) return false;
+    var m = bg.match(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/); if(!m) return false;
+    if(m[4] !== undefined && parseFloat(m[4]) < .9) return false;
+    var r = +m[1], g = +m[2], bl = +m[3];
+    if(r > 190 && g < 110 && bl < 110) return false;          // 빨강 = 위험 동작은 유지
+    if(Math.max(r, g, bl) - Math.min(r, g, bl) < 30) return false; // 회색·검정
+    return true;
+  }
+  function normButtons(){
+    [].forEach.call(document.querySelectorAll('#mainContainer button'), function(b){
+      if(b.closest('.tab-bar') || b.closest('.header') || b.closest('.ops-seg') || b.closest('#tab-track')) return;
+      if(/viToggleGrade/.test(b.getAttribute('onclick') || '')) return;
+      var had = b.classList.contains('erp-pri'); if(had) b.classList.remove('erp-pri');
+      if(solidLoud(b)) b.classList.add('erp-pri');
+    });
+  }
+
+  var _t = null, _mo = null;
+  function tidyAll(){ _t = null; try{ stripEmoji(); normButtons(); moveAdmin(); crumb(); }catch(e){ console.warn('erp theme', e); }
+    if(_mo) _mo.takeRecords(); /* 내가 바꾼 변화로 다시 돌지 않게 */ }
+  function later(){ if(!_t) _t = setTimeout(tidyAll, 60); }
+  function boot(){
+    erpMenu(); tidyAll();
+    var mc = document.getElementById('mainContainer');
+    if(mc){ _mo = new MutationObserver(later); _mo.observe(mc, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']}); }
+    var ls = document.getElementById('loginScreen');
+    if(ls) new MutationObserver(later).observe(ls, {attributes:true, attributeFilter:['style']});
+    document.addEventListener('click', later, true);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
 </head>
 <body class="" style="">
 
