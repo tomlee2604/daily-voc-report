@@ -322,9 +322,23 @@ i.ops-w{background:rgba(5,150,105,.13)} i.ops-l{background:rgba(5,150,105,.38)} 
 </style>
 <!-- ===== ERP 테마 (시연 디자인) — 화면 스타일만 바꾸고 기능·데이터는 그대로 ===== -->
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+/* 모바일: 화면 폭을 가장 큰 기본 표(월별 5단계 건수 표) 기준 660px로 고정 → 모든 구역이 같은 폭으로 정렬, 표가 잘리지 않음 */
+(function(){
+  var W = 660, m = document.querySelector('meta[name="viewport"]'); if(!m) return;
+  function set(){
+    var land = window.matchMedia && matchMedia('(orientation: landscape)').matches;
+    var sw = land ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    var c = sw < W ? 'width=' + W : 'width=device-width, initial-scale=1.0';
+    if(m.getAttribute('content') !== c) m.setAttribute('content', c);
+  }
+  set(); window.addEventListener('orientationchange', function(){ setTimeout(set, 250); });
+})();
+</script>
 <style id="erp-theme">
 :root{--bg:#E6EAF0;--surface:#FFFFFF;--surface2:#F4F6F9;--surface3:#E9EEF5;--border:#B9C3CF;--text:#1E2933;--text2:#3E4B5B;--text3:#5B6775;
   --accent:#2B5797;--accent2:#1D4E89;--radius:3px;--radius-sm:3px;--erp-navy:#1F3A5F;--erp-line:#D5DCE5}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--bg);font-size:13px}
 body::before{display:none!important}
 *{animation:none!important}
@@ -478,8 +492,12 @@ body::before{display:none!important}
   .header button,.header #adminBtn button{padding:4px 9px!important;white-space:nowrap}
   .erp-crumb{position:static;padding:0 10px;margin:0!important}
   .erp-crumb .cond{display:none}
+  #viContent th.vc,#viContent td.vc{min-width:160px!important}
   #mainContainer>.tab-bar{top:0}
 }
+/* 표가 페이지를 밀어내지 않게: 그리드 칸은 줄어들 수 있고, 더 넓은 표는 자기 칸 안에서 가로 스크롤 */
+.chart-grid>*,.two-col>*,.rt-main>*{min-width:0}
+.chart-card>div:has(>table),.chart-card .table-wrap,.rt-detail>div:has(>table){overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media print{#mainContainer{padding-left:0!important}#mainContainer>.tab-bar,.erp-crumb{display:none!important}#mainContainer>.header{position:static}}
 </style>
 <script>
