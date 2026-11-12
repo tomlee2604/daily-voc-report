@@ -14,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  pages: read
+  checks: read
 
 concurrency:
   group: notify
@@ -38,10 +38,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           for i in $(seq 1 60); do
-            r=$(gh api repos/${{ github.repository }}/pages/builds/latest --jq '.status + " " + .commit' 2>/dev/null || true)
-            echo "$i: $r"
-            if [ "$r" = "built ${{ github.sha }}" ]; then exit 0; fi
-            sleep 15
+            r=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs --jq '.check_runs[] | select(.name=="deploy") | .status + " " + (.conclusion // "")' 2>/dev/null || true)
+            echo "$i: deploy $r"
+            case "$r" in "completed success") exit 0;; "completed "*) echo "배포 실패 — 알림 안 보냄"; exit 1;; esac
+            sleep 10
           done
           echo "배포 확인 시간 초과 — 그래도 알림은 보냄"
 
