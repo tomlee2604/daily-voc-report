@@ -5596,6 +5596,13 @@ function pushSave(sub){
   fireAndForget(SHEET_API + '?action=write&sheet=' + encodeURIComponent(PUSH_SHEET) + '&data=' + encodeURIComponent(JSON.stringify(row)), function(){ pushLS('push-saved', j.endpoint); });
 }
 var pushReg = null;
+/* 앱을 열거나 다시 보면 아이콘의 빨간 숫자(배지)를 지움 */
+function pushClearBadge(){
+  try{ if(navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); }catch(e){}
+  try{ if(window.caches) caches.delete('app-badge').catch(function(){}); }catch(e){}
+}
+pushClearBadge();
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') pushClearBadge(); });
 if('serviceWorker' in navigator && location.protocol !== 'file:'){
   navigator.serviceWorker.register('sw.js').then(function(reg){
     pushReg = reg;
