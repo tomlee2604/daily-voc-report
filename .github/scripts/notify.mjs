@@ -82,8 +82,10 @@ async function main(){
   if(process.env.DRY_RUN){ console.log('DRY_RUN — 발송 생략'); return; }
   if(!process.env.VAPID_PRIVATE_KEY){ console.log('VAPID_PRIVATE_KEY 시크릿이 없어 발송하지 못함'); process.exitCode = 1; return; }
   webpush.setVapidDetails(SITE, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
-  const subs = await loadSubs();
-  console.log('구독 기기', subs.length + '대');
+  let subs = await loadSubs();
+  const to = (process.env.TO || '').trim();
+  console.log('구독 기기', subs.length + '대', subs.map(s => (s.who || '?') + '/' + (s.dev || '?')).join(', '));
+  if(to){ subs = subs.filter(s => (s.who || '').includes(to)); console.log('받는 사람 "' + to + '" →', subs.length + '대'); }
   const payload = JSON.stringify({title:'물류서비스 운영 현황 업데이트', body, url:SITE, tag:'report-update'});
   let ok = 0, gone = 0, fail = 0;
   await Promise.all(subs.map(s => webpush.sendNotification(s, payload, {TTL:86400, urgency:'normal'})

@@ -11,6 +11,9 @@ on:
       message:
         description: '알림 문구 (비우면 직전 버전과 비교해 자동 작성)'
         required: false
+      to:
+        description: '받는 사람만 (예: 마스터, 전주 CDC, 김기태) — 비우면 구독한 모든 기기'
+        required: false
 
 permissions:
   contents: read
@@ -54,6 +57,7 @@ jobs:
           VAPID_PUBLIC_KEY: BBtnhR6k0lO5Fa4HPqcSTVfW7tE2ExPaszmcf2o6gUWR2fbCXLcjrWTjv8K8sqxzcdi_W40LboXEltihq8LCsCw
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MESSAGE: ${{ github.event.inputs.message }}
+          TO: ${{ github.event.inputs.to }}
         run: |
           npm i --no-save web-push@3.6.7 >/dev/null
           node .github/scripts/notify.mjs /tmp/prev.html index.html
