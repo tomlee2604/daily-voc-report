@@ -64,7 +64,11 @@ async function loadSubs(){
   const r = await fetch(SHEET_API + '?action=read&sheet=' + encodeURIComponent(SHEET) + '&callback=cb', {redirect:'follow'});
   let t = (await r.text()).trim();
   const m = t.match(/^[\w$.]+\(([\s\S]*)\)\s*;?$/); if(m) t = m[1];
-  let rows = []; try{ rows = JSON.parse(t); }catch(e){ console.log('구독 목록을 읽지 못함:', t.slice(0, 200)); return []; }
+  let rows = []; try{ rows = JSON.parse(t); }catch(e){
+    const txt = t.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    console.log('구독 목록을 읽지 못함 (HTTP ' + r.status + ', ' + r.url.slice(0, 60) + '):', txt.slice(0, 300));
+    if(process.env.DEBUG_SHEET){ const r2 = await fetch(SHEET_API + '?action=read&sheet=' + encodeURIComponent('공지') + '&callback=cb', {redirect:'follow'}); console.log('비교: 공지 탭 읽기', r2.status, (await r2.text()).slice(0, 120)); }
+    return []; }
   const byEp = new Map();
   for(const row of rows){ const ep = row && row[1]; if(typeof ep === 'string' && ep.startsWith('https://') && row[2] && row[3]) byEp.set(ep, {endpoint:ep, keys:{p256dh:row[2], auth:row[3]}, who:row[4] || '', dev:row[5] || ''}); }
   return [...byEp.values()];

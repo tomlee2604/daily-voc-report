@@ -58,6 +58,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MESSAGE: ${{ github.event.inputs.message }}
           TO: ${{ github.event.inputs.to }}
+          DEBUG_SHEET: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
           npm i --no-save web-push@3.6.7 >/dev/null
           node .github/scripts/notify.mjs /tmp/prev.html index.html
