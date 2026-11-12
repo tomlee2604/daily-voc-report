@@ -1,0 +1,59 @@
+name: 업데이트 알림
+
+# index.html의 데이터(VOC·도급비·근무 로스터·순회차량·교육 영상)가 바뀐 배포에만, 배포가 끝난 뒤 알림을 보냄.
+# 디자인·기능만 바뀐 배포에는 보내지 않음. Actions 탭에서 직접 문구를 써서 보낼 수도 있음.
+on:
+  push:
+    branches: [main]
+    paths: [index.html]
+  workflow_dispatch:
+    inputs:
+      message:
+        description: '알림 문구 (비우면 직전 버전과 비교해 자동 작성)'
+        required: false
+
+permissions:
+  contents: read
+  pages: read
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 이전 버전 꺼내기
+        run: git show HEAD~1:index.html > /tmp/prev.html 2>/dev/null || rm -f /tmp/prev.html
+
+      - name: 사이트 배포 끝날 때까지 기다리기
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 60); do
+            r=$(gh api repos/${{ github.repository }}/pages/builds/latest --jq '.status + " " + .commit' 2>/dev/null || true)
+            echo "$i: $r"
+            if [ "$r" = "built ${{ github.sha }}" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "배포 확인 시간 초과 — 그래도 알림은 보냄"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 알림 보내기
+        env:
+          VAPID_PUBLIC_KEY: BBtnhR6k0lO5Fa4HPqcSTVfW7tE2ExPaszmcf2o6gUWR2fbCXLcjrWTjv8K8sqxzcdi_W40LboXEltihq8LCsCw
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          MESSAGE: ${{ github.event.inputs.message }}
+        run: |
+          npm i --no-save web-push@3.6.7 >/dev/null
+          node .github/scripts/notify.mjs /tmp/prev.html index.html
