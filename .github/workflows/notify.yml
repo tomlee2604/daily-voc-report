@@ -57,7 +57,9 @@ jobs:
           VAPID_PUBLIC_KEY: BBtnhR6k0lO5Fa4HPqcSTVfW7tE2ExPaszmcf2o6gUWR2fbCXLcjrWTjv8K8sqxzcdi_W40LboXEltihq8LCsCw
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MESSAGE: ${{ github.event.inputs.message }}
-          TO: ${{ github.event.inputs.to }}
+          # 임시: 배포 후 자동 알림은 '마스터'로 구독한 기기에만 보냄 (수동 발송은 입력한 받는 사람 그대로).
+          # 다시 모든 구독자에게 보내려면 아래 줄을 TO: ${{ github.event.inputs.to }} 로 되돌리세요.
+          TO: ${{ github.event_name == 'push' && '마스터' || github.event.inputs.to }}
           DEBUG_SHEET: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
           npm i --no-save web-push@3.6.7 >/dev/null
